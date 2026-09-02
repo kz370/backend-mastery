@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encapsulation — Backend Mastery</title>
+<meta name="description" content="مش أي كود بره الـclass يكون مسموح له يغيّر البيانات الداخلية براحته. الـobject هو اللي يحمي حالته، والتغيير يحصل من خلال الـbehavior المناسب.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2310b981'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='monospace' font-weight='bold' fill='%23042014'>B</text></svg>">
+<link rel="stylesheet" href="../assets/style.css">
+<script>(function(){try{var t=JSON.parse(localStorage.getItem('bm.theme'))||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" id="menuBtn" type="button" aria-label="القائمة"></button>
+  <a class="brand" href="../index.html">
+    <span class="brand-mark">B</span>
+    <span>Backend Mastery<small>OOP · SOLID · PATTERNS</small></span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <div class="search-wrap">
+    <input class="search-input" id="searchInput" type="search" placeholder="ابحث… ( / )" autocomplete="off">
+    <div class="search-results" id="searchResults"></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" type="button" aria-label="تبديل الوضع"></button>
+</header>
+
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="container">
+      <nav class="crumb"><a href="../index.html">الرئيسية</a><span>/</span><a href="../oop/encapsulation.html">أساسيات OOP</a><span>/</span>Encapsulation</nav>
+<header class="page-head"><div class="eyebrow">OOP · المفهوم 1</div><h1>Encapsulation — التغليف</h1><p class="lede">مش أي كود بره الـclass يكون مسموح له يغيّر البيانات الداخلية براحته. الـobject هو اللي يحمي حالته، والتغيير يحصل من خلال الـbehavior المناسب.</p></header>
+      <nav class="toc"><div class="toc-title">محتويات الصفحة</div><ol><li><a href="#s">المشكلة</a></li><li><a href="#s">ليه دي مشكلة فعلًا؟</a></li><li><a href="#s">الحل</a></li><li><a href="#getters-setters">الغلطة الشائعة: getters و setters لكل حاجة</a></li><li><a href="#public">إمتى الـpublic مقبول؟</a></li><li><a href="#s">في المشروع بتاعنا</a></li><li><a href="#interview">Interview</a></li></ol></nav>
+      <div class="remember"><span class="rk">افتكرها</span><p>الـEncapsulation مش <b>«خلي كل حاجة private»</b>. هو <em>«الـobject هو الوحيد اللي يقدر يغيّر حالته، وبقواعده هو»</em>.</p></div><h2 id="s"><span class="h-idx">1</span>المشكلة</h2><p>تعالى نبص على الكود ده من المشروع العملي:</p><pre data-lang="php">class Order
+{
+    public $items = [];
+    public $customer;
+    public $status = &#x27;pending&#x27;;
+    public $discountPercent = 0;
+}
+
+// وفي أي مكان تاني في المشروع:
+$order-&gt;status = &#x27;shipped&#x27;;
+$order-&gt;discountPercent = 90;
+$order-&gt;items = [];</pre><div class="box problem"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>إيه اللي غلط هنا؟</div><p>مفيش حاجة بتمنع أي كود في المشروع إنه:</p><ul><li>يخلي الـ<code>status</code> = <code>'shipped'</code> والطلب أصلًا لسه ما اتدفعش.</li><li>يحط خصم 90% من غير كوبون.</li><li>يفضّي الـ<code>items</code> بعد ما الطلب اتدفع.</li><li>يحط <code>status = 'bananas'</code> — والكود هيقبلها عادي.</li></ul><p>النتيجة: الـ<b>Order</b> بقى مجرد صندوق بيانات، مش object له قواعد. ولما تظهر مشكلة في الـproduction، هتدور في المشروع كله على مين غيّر الـstatus.</p></div><h2 id="s"><span class="h-idx">2</span>ليه دي مشكلة فعلًا؟</h2><p>خد بالك من نقطة مهمة كتير الناس بتفوّتها: المشكلة مش «الـproperty عامة». المشكلة إن <b>القاعدة اللي بتحكم التغيير مش موجودة في مكان واحد</b>.</p><div class="diagram">public property
+     ↓
+كل كود يقدر يغيّر
+     ↓
+القاعدة اتكررت في كل مكان (أو اتنسيت)
+     ↓
+حالات مستحيلة (impossible states) تظهر في الـDB</div><p>لما تخلي التغيير يعدّي من method واحدة، بتكسب 3 حاجات:</p><ol><li><b>مكان واحد للقاعدة</b> — لو القاعدة اتغيّرت، تعدل في مكان واحد.</li><li><b>مكان واحد تحط فيه breakpoint</b> — لما تدوّر على bug، عارف تروح فين.</li><li><b>الـstate دايمًا صالح</b> — مستحيل يبقى عندك order مدفوع بـitems فاضية.</li></ol><h2 id="s"><span class="h-idx">3</span>الحل</h2><div class="compare"><div class="bad"><div class="ch">✕ state مكشوف</div><div class="cb"><pre data-lang="php">class Order
+{
+    public $status = &#x27;pending&#x27;;
+}
+
+$order-&gt;status = &#x27;paid&#x27;;
+$order-&gt;status = &#x27;shipped&#x27;;
+$order-&gt;status = &#x27;anything&#x27;;</pre></div></div><div class="good"><div class="ch">✓ state محمي بسلوك</div><div class="cb"><pre data-lang="php">class Order
+{
+    private string $status = &#x27;pending&#x27;;
+
+    public function markAsPaid(): void
+    {
+        if ($this-&gt;status !== &#x27;pending&#x27;) {
+            throw new DomainException(
+                &#x27;Only a pending order can be paid.&#x27;
+            );
+        }
+
+        $this-&gt;status = &#x27;paid&#x27;;
+    }
+
+    public function status(): string
+    {
+        return $this-&gt;status;
+    }
+}</pre></div></div></div><p>بص على الفرق: دلوقتي جملة <code>$order->markAsPaid()</code> بتحمل معنى في الـdomain. أما <code>$order->status = 'paid'</code> فهي مجرد تعديل حرف في متغير.</p><h2 id="getters-setters"><span class="h-idx">4</span>الغلطة الشائعة: getters و setters لكل حاجة</h2><div class="box warn"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>ده مش encapsulation</div><pre data-lang="php">class Order
+{
+    private $status;
+
+    public function getStatus() { return $this-&gt;status; }
+    public function setStatus($s) { $this-&gt;status = $s; }
+}</pre><p>لو كل <code>private</code> عندها <code>set</code> عامة بتغيرها من غير أي شرط، فأنت عملت نفس الـpublic property بس بخطوتين. الـ<code>setStatus()</code> دي مجرد باب خلفي.</p><p><b>السؤال الصح:</b> «إيه العمليات اللي ممكن تحصل للـOrder؟» مش «إيه الـproperties اللي ممكن أعدلها؟»</p></div><div class="table-wrap"><table><thead><tr><th>بدل ما تكتب</th><th>اكتب</th></tr></thead><tbody><tr><td><code>setStatus('paid')</code></td><td><code>markAsPaid()</code></td></tr><tr><td><code>setStatus('shipped')</code></td><td><code>ship()</code></td></tr><tr><td><code>setDiscount(10)</code></td><td><code>applyCoupon('SAVE10')</code></td></tr><tr><td><code>setBalance($b - 50)</code></td><td><code>debit(50)</code></td></tr></tbody></table></div><p>لاحظ إن كل واحدة على اليمين بتوصف <b>عملية في الـdomain</b>، وبالتالي فيها مكان طبيعي تحط فيه القواعد.</p><h2 id="public"><span class="h-idx">5</span>إمتى الـpublic مقبول؟</h2><p>مش كل حاجة لازم تتقفل. الـpublic مقبول لما:</p><ul><li>الـobject أصلًا <b>Value Object</b> ثابت (immutable) — زي <code>Money</code> أو <code>Email</code>، اتبنى صح مرة واحدة ومحدش بيغيره بعد كده.</li><li>الـclass عبارة عن <b>DTO</b> بينقل بيانات بين طبقتين ومفيهاش قواعد أصلًا.</li><li>الـproperty فعلًا ملهاش قاعدة، وتغييرها من بره مش هيخلي الـobject في حالة غلط.</li></ul><div class="box idea"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>قاعدة عملية</div><p>اسأل: «لو حد من بره غيّر الـproperty دي لأي قيمة، هل ممكن الـobject يبقى في حالة مستحيلة؟» لو الإجابة آه → اقفلها وحط behavior.</p></div><h2 id="s"><span class="h-idx">6</span>في المشروع بتاعنا</h2><p>لو رجعنا لمشروع الـOrder، الحاجات اللي المفروض تتقفل:</p><div class="table-wrap"><table><thead><tr><th>الـProperty</th><th>ليه؟</th></tr></thead><tbody><tr><td><code>status</code></td><td>له دورة حياة: pending → paid → shipped. مش أي قيمة تنفع في أي وقت.</td></tr><tr><td><code>items</code></td><td>إضافة item ليها قواعد (quantity > 0). والإضافة بعد الدفع مش منطقية.</td></tr><tr><td><code>discountPercent</code></td><td>مالوش معنى لوحده — هو نتيجة كوبون صالح، مش رقم عشوائي.</td></tr><tr><td><code>customer</code></td><td>الطلب بيتعمل لعميل واحد. تغييره بعد الإنشاء يكسر معنى الطلب.</td></tr><tr><td><code>walletBalance</code></td><td>دي أخطر واحدة — فلوس. مفيش كود بره الـWallet يعدّلها مباشرة.</td></tr></tbody></table></div><h2 id="interview"><span class="h-idx">7</span>Interview</h2><div class="box good"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14.01l-3-3"/></svg>لو سألك: What is Encapsulation?</div><blockquote><p>«الـEncapsulation إن الـobject يحمي الـstate بتاعه، فمش أي كود من بره يقدر يعدّله مباشرة. التغيير بيحصل من خلال methods بتمثل عمليات حقيقية في الـdomain، وفيها القواعد. الهدف مش إخفاء البيانات في حد ذاته، الهدف إن الـobject يفضل دايمًا في حالة صالحة.»</p></blockquote><p><b>Follow-up متوقع:</b> «طب مش getters و setters بيعملوا كده؟» — الرد: لأ، الـsetter اللي بيحط أي قيمة من غير شرط بيرجّعك لنفس مشكلة الـpublic property، بس بشكل أطول.</p></div><div class="remember"><span class="rk">الخلاصة</span><p>احمي الـstate، وخلّي التغيير يحصل من خلال الـbehavior المناسب.</p></div>
+      <div id="quizHost"></div>
+      <div class="done-bar" id="doneBar"></div>
+      <nav class="page-nav" id="pageNav"></nav>
+    </div>
+  </main>
+</div>
+
+<script>
+window.PAGE_ID = "oop-encapsulation";
+window.PAGE_BASE = "../";
+window.SITE_NAV = [{"id": "start", "title": "البداية", "color": "#38bdf8", "items": [{"id": "home", "title": "الرئيسية", "href": "index.html", "kw": "home مقدمة"}, {"id": "roadmap", "title": "خريطة الرحلة", "href": "pages/roadmap.html", "kw": "roadmap طريق system design"}, {"id": "plan", "title": "خطة المذاكرة", "href": "pages/plan.html", "kw": "plan جدول أسابيع"}]}, {"id": "oop", "title": "أساسيات OOP", "color": "#34d399", "items": [{"id": "oop-encapsulation", "title": "Encapsulation", "href": "oop/encapsulation.html", "kw": "التغليف private state"}, {"id": "oop-responsibility", "title": "Responsibility", "href": "oop/responsibility.html", "kw": "المسؤولية مين مسؤول"}, {"id": "oop-srp", "title": "SRP", "href": "oop/srp.html", "kw": "single responsibility سبب واحد للتغيير"}, {"id": "oop-dry", "title": "DRY", "href": "oop/dry.html", "kw": "تكرار duplication"}, {"id": "oop-coupling", "title": "Coupling", "href": "oop/coupling.html", "kw": "tight loose ارتباط"}, {"id": "oop-interface", "title": "Interface & Abstraction", "href": "oop/interface.html", "kw": "contract عقد abstraction"}, {"id": "oop-polymorphism", "title": "Polymorphism", "href": "oop/polymorphism.html", "kw": "تعدد الأشكال"}, {"id": "oop-di", "title": "Dependency Injection", "href": "oop/di.html", "kw": "حقن الاعتماديات container"}, {"id": "oop-invariants", "title": "Invariants", "href": "oop/invariants.html", "kw": "guard rails قواعد validation"}, {"id": "oop-inheritance", "title": "Inheritance", "href": "oop/inheritance.html", "kw": "وراثة is-a composition"}, {"id": "oop-map", "title": "الخريطة الذهنية", "href": "oop/map.html", "kw": "ربط المفاهيم مراجعة"}]}, {"id": "solid", "title": "SOLID", "color": "#fbbf24", "items": [{"id": "solid-index", "title": "نظرة عامة", "href": "solid/index.html", "kw": "solid مقدمة"}, {"id": "solid-s", "title": "S — Single Responsibility", "href": "solid/srp.html", "kw": "srp"}, {"id": "solid-o", "title": "O — Open / Closed", "href": "solid/ocp.html", "kw": "ocp مفتوح مغلق"}, {"id": "solid-l", "title": "L — Liskov Substitution", "href": "solid/lsp.html", "kw": "lsp"}, {"id": "solid-i", "title": "I — Interface Segregation", "href": "solid/isp.html", "kw": "isp"}, {"id": "solid-d", "title": "D — Dependency Inversion", "href": "solid/dip.html", "kw": "dip"}]}, {"id": "patterns", "title": "Design Patterns", "color": "#fb7185", "items": [{"id": "pat-index", "title": "مقدمة والتصنيفات", "href": "patterns/index.html", "kw": "gof مقدمة 23 تصنيف"}]}, {"id": "creational", "title": "Creational — الإنشاء", "color": "#f472b6", "items": [{"id": "pat-factory", "title": "Factory Method", "href": "patterns/factory-method.html", "kw": "مصنع creation subclass", "num": "C1"}, {"id": "pat-abstract-factory", "title": "Abstract Factory", "href": "patterns/abstract-factory.html", "kw": "عائلة منتجات families", "num": "C2"}, {"id": "pat-builder", "title": "Builder", "href": "patterns/builder.html", "kw": "بناء object معقد خطوة", "num": "C3"}, {"id": "pat-prototype", "title": "Prototype", "href": "patterns/prototype.html", "kw": "clone نسخ", "num": "C4"}, {"id": "pat-singleton", "title": "Singleton", "href": "patterns/singleton.html", "kw": "نسخة واحدة global", "num": "C5"}]}, {"id": "structural", "title": "Structural — التركيب", "color": "#38bdf8", "items": [{"id": "pat-adapter", "title": "Adapter", "href": "patterns/adapter.html", "kw": "محوّل legacy interface", "num": "S1"}, {"id": "pat-bridge", "title": "Bridge", "href": "patterns/bridge.html", "kw": "فصل abstraction implementation", "num": "S2"}, {"id": "pat-composite", "title": "Composite", "href": "patterns/composite.html", "kw": "شجرة tree hierarchy", "num": "S3"}, {"id": "pat-decorator", "title": "Decorator", "href": "patterns/decorator.html", "kw": "تغليف behavior wrap", "num": "S4"}, {"id": "pat-facade", "title": "Facade", "href": "patterns/facade.html", "kw": "واجهة subsystem تبسيط", "num": "S5"}, {"id": "pat-flyweight", "title": "Flyweight", "href": "patterns/flyweight.html", "kw": "ذاكرة مشاركة shared", "num": "S6"}, {"id": "pat-proxy", "title": "Proxy", "href": "patterns/proxy.html", "kw": "وكيل lazy cache", "num": "S7"}]}, {"id": "behavioral", "title": "Behavioral — السلوك", "color": "#34d399", "items": [{"id": "pat-strategy", "title": "Strategy", "href": "patterns/strategy.html", "kw": "استراتيجية payment طرق تنفيذ", "num": "B1"}, {"id": "pat-observer", "title": "Observer", "href": "patterns/observer.html", "kw": "event listener أحداث", "num": "B2"}, {"id": "pat-state", "title": "State", "href": "patterns/state.html", "kw": "حالة order status", "num": "B3"}, {"id": "pat-command", "title": "Command", "href": "patterns/command.html", "kw": "أمر action object", "num": "B4"}, {"id": "pat-chain", "title": "Chain of Responsibility", "href": "patterns/chain.html", "kw": "سلسلة middleware pipeline", "num": "B5"}, {"id": "pat-template", "title": "Template Method", "href": "patterns/template-method.html", "kw": "قالب workflow خطوات", "num": "B6"}, {"id": "pat-iterator", "title": "Iterator", "href": "patterns/iterator.html", "kw": "تكرار foreach collection", "num": "B7"}, {"id": "pat-mediator", "title": "Mediator", "href": "patterns/mediator.html", "kw": "وسيط تنسيق", "num": "B8"}, {"id": "pat-memento", "title": "Memento", "href": "patterns/memento.html", "kw": "حفظ استرجاع undo", "num": "B9"}, {"id": "pat-visitor", "title": "Visitor", "href": "patterns/visitor.html", "kw": "زائر عمليات جديدة", "num": "B10"}, {"id": "pat-interpreter", "title": "Interpreter", "href": "patterns/interpreter.html", "kw": "لغة قواعد تفسير", "num": "B11"}]}, {"id": "practice", "title": "تطبيق ومراجعة", "color": "#a78bfa", "items": [{"id": "pat-compare", "title": "اختيار الـPattern المناسب", "href": "patterns/compare.html", "kw": "فرق شجرة قرار مقارنة"}, {"id": "prj", "title": "المشروع العملي", "href": "practice/project.html", "kw": "order refactor تحديات"}, {"id": "interview", "title": "بنك أسئلة الإنترفيو", "href": "practice/interview.html", "kw": "interview أسئلة"}, {"id": "cheat", "title": "الملخص السريع", "href": "practice/cheatsheet.html", "kw": "cheatsheet مراجعة"}, {"id": "exam", "title": "الامتحان الشامل", "href": "practice/exam.html", "kw": "exam اختبار نهائي"}]}];
+window.QUIZ = {"title": "اختبر نفسك — Encapsulation", "questions": [{"q": "إيه الفرق الجوهري بين <code>$order->status = 'paid';</code> و <code>$order->markAsPaid();</code>؟", "options": ["مفيش فرق حقيقي، الثانية بس أطول", "الثانية بتدي مكان واحد تتحط فيه قواعد الانتقال بين الحالات", "الأولى أسرع في التنفيذ", "الثانية لازم تكون static"], "answer": 1, "exp": "الـmethod بتدي <strong>نقطة واحدة</strong> تتجمع فيها قواعد الانتقال (مين يقدر يدفع، ومن أنهي حالة). الـassignment المباشرة بتوزّع القاعدة على كل مكان بيعمل التغيير — أو بتخليها مش موجودة أصلًا."}, {"q": "كلاس فيه كل الـproperties <code>private</code>، ولكل واحدة <code>getX()</code> و <code>setX()</code> عامة بتحط أي قيمة. ده يعتبر Encapsulation كويس؟", "options": ["آه، لأن كل حاجة private", "لأ، لأن الـsetters فتحت نفس الباب تاني من غير قواعد", "آه، لأن ده الـstandard في الـOOP", "لأ، لأن المفروض ما يكونش فيه getters خالص"], "answer": 1, "exp": "دي أشهر غلطة. <strong>private + setter بلا شروط = public property بخطوتين.</strong> المهم مش الـkeyword، المهم إن القاعدة موجودة جوه العملية. والـgetters مش ممنوعة — القراءة مش بتكسر الـstate."}, {"q": "أنهي واحدة فيهم <b>مش</b> سبب كافي لتقفيل property؟", "options": ["الـproperty ليها قواعد صحة (زي quantity > 0)", "الـproperty ليها دورة حياة (states متسلسلة)", "الـproperty اسمها بيبدأ بحرف كبير", "الـproperty فلوس أو رصيد"], "answer": 2, "exp": "اسم الـproperty مالوش أي علاقة. المعيار الوحيد: <strong>هل تغييرها من بره ممكن يخلي الـobject في حالة مستحيلة؟</strong>"}, {"q": "في المشروع، السطر <code>$this->customer->walletBalance -= $total;</code> جوه <code>Order</code>. المشكلة الأساسية دي:", "options": ["الـOrder بيعدّل state مملوك لobject تاني مباشرة", "الاسم <code>walletBalance</code> طويل", "لازم نستخدم <code>+=</code> بدل <code>-=</code>", "الـOrder المفروض يكون static"], "answer": 0, "exp": "دي مشكلة مزدوجة: <strong>Encapsulation</strong> (الـWallet هي اللي تحمي رصيدها) و<strong>Responsibility</strong> (خصم الفلوس شغل الـWallet مش الـOrder). الشكل الصح: <code>$wallet->debit($total)</code> والـWallet هي اللي تتحقق من الرصيد."}, {"q": "إمتى يكون مقبول تسيب الـproperties عامة؟", "options": ["لما تكون مستعجل", "في Value Object ثابت (immutable) أو DTO ملوش قواعد داخلية", "في أي class فيه أقل من 3 properties", "أبدًا، ده ممنوع في الـOOP"], "answer": 1, "exp": "لو الـobject اتبنى صح مرة واحدة ومحدش بيغيّره بعدها (immutable Value Object) أو مجرد حاوية نقل بيانات (DTO)، مفيش state محتاج حماية. <strong>Encapsulation وسيلة لحماية القواعد، مش طقس لازم تعمله.</strong>"}, {"q": "اشرح بكلامك: ليه ممكن نقول إن الـEncapsulation بتسهّل الـdebugging؟", "kind": "سؤال مفتوح", "exp": "<b>الإجابة النموذجية:</b> لما التغيير يبقى ماشي من method واحدة، بيبقى عندك <strong>نقطة واحدة</strong> تحط فيها breakpoint أو log عشان تعرف مين غيّر الحالة وإمتى. أما لما الـproperty تكون عامة، أي سطر في المشروع كله يبقى مشتبه فيه، ومش هتلاقي طريقة تتبع غير إنك تدوّر يدوي في المشروع كله."}], "id": "oop-encapsulation"};
+</script>
+<script src="../assets/app.js"></script>
+</body>
+</html>

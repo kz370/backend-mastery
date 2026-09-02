@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I — Interface Segregation — Backend Mastery</title>
+<meta name="description" content="ما تعملش Interface ضخمة وتجبر الكلاسات تنفّذ حاجات هي مش محتاجاها.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2310b981'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='monospace' font-weight='bold' fill='%23042014'>B</text></svg>">
+<link rel="stylesheet" href="../assets/style.css">
+<script>(function(){try{var t=JSON.parse(localStorage.getItem('bm.theme'))||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" id="menuBtn" type="button" aria-label="القائمة"></button>
+  <a class="brand" href="../index.html">
+    <span class="brand-mark">B</span>
+    <span>Backend Mastery<small>OOP · SOLID · PATTERNS</small></span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <div class="search-wrap">
+    <input class="search-input" id="searchInput" type="search" placeholder="ابحث… ( / )" autocomplete="off">
+    <div class="search-results" id="searchResults"></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" type="button" aria-label="تبديل الوضع"></button>
+</header>
+
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="container">
+      <nav class="crumb"><a href="../index.html">الرئيسية</a><span>/</span><a href="../solid/index.html">SOLID</a><span>/</span>I — Interface Segregation</nav>
+<header class="page-head"><div class="eyebrow">SOLID · I</div><h1>I — Interface Segregation Principle</h1><p class="lede">ما تعملش Interface ضخمة وتجبر الكلاسات تنفّذ حاجات هي مش محتاجاها.</p></header>
+      <nav class="toc"><div class="toc-title">محتويات الصفحة</div><ol><li><a href="#s">مثال فيه مشكلة</a></li><li><a href="#s">شكل أفضل</a></li><li><a href="#s">الفايدة الحقيقية: تقليل أسباب التغيير</a></li><li><a href="#role-interfaces">Role interfaces</a></li><li><a href="#s">خلي بالك من المبالغة</a></li></ol></nav>
+      <div class="remember"><span class="rk">افتكرها</span><p><b>السؤال الذهبي:</b> هل الـclass مضطرة تنفّذ methods هي مش بتستخدمها، بس لأنها طبّقت Interface؟</p></div><h2 id="s"><span class="h-idx">1</span>مثال فيه مشكلة</h2><pre data-lang="php">interface Worker
+{
+    public function work();
+    public function eat();
+}
+
+class Robot implements Worker
+{
+    public function work()
+    {
+        // work
+    }
+
+    public function eat()
+    {
+        // Robot does not eat!
+    }
+}</pre><p>الـ<code>Robot</code> محتاج <code>work()</code> بس، لكن الـinterface أجبره ينفّذ <code>eat()</code> كمان — فبقى عنده method فاضية أو بترمي exception.</p><div class="box problem"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>لاحظ الرابط بالـLSP</div><p>الـmethod الفاضية دي مش مجرد كود زيادة — دي <b>كسر للـLSP</b> كمان. أي كود بيتعامل مع <code>Worker</code> ويستدعي <code>eat()</code> هيتصرف غلط مع الروبوت. المبدآن بيتقابلوا هنا.</p></div><h2 id="s"><span class="h-idx">2</span>شكل أفضل</h2><pre data-lang="php">interface Workable
+{
+    public function work();
+}
+
+interface Eatable
+{
+    public function eat();
+}
+
+class Human implements Workable, Eatable
+{
+    public function work() { }
+    public function eat()  { }
+}
+
+class Robot implements Workable
+{
+    public function work() { }
+}</pre><p>الـinterfaces الصغيرة أسهل في الفهم والتنفيذ والاختبار. وكل class بتاخد اللي يخصها بس.</p><h2 id="s"><span class="h-idx">3</span>الفايدة الحقيقية: تقليل أسباب التغيير</h2><p>الـISP مش بس عن الـmethods الفاضية. الفايدة الأعمق:</p><div class="diagram">interface ضخم فيه 12 method
+        ↓
+أي تعديل فيه بيجبر كل الـimplementations تتعدّل
+        ↓
+حتى اللي مش مهتمة بالـmethod اللي اتغيرت</div><p>يعني الـinterface الضخم بيخلي كل الـimplementations <b>مربوطة ببعض بشكل غير مباشر</b> — تعديل عشان class واحدة بيلمس كل الباقيين.</p><h2 id="role-interfaces"><span class="h-idx">4</span>Role interfaces</h2><p>طريقة تفكير عملية: بدل ما تعمل interface يوصف <b>الـclass</b>، اعمله يوصف <b>الدور</b>:</p><div class="compare"><div class="bad"><div class="ch">✕ interface بيوصف الـclass</div><div class="cb"><pre data-lang="php">interface UserRepositoryInterface
+{
+    public function find($id);
+    public function all();
+    public function create(array $data);
+    public function update($id, array $data);
+    public function delete($id);
+    public function paginate($perPage);
+    public function search($term);
+    // ...12 method
+}</pre></div></div><div class="good"><div class="ch">✓ interfaces بتوصف الأدوار</div><div class="cb"><pre data-lang="php">interface FindsUsers
+{
+    public function find(int $id): ?User;
+}
+
+interface StoresUsers
+{
+    public function save(User $user): void;
+}</pre></div></div></div><p>دلوقتي الـclass اللي محتاجة تقرأ بس بتعتمد على <code>FindsUsers</code> — فالـtest بتاعها بيحتاج mock لـmethod واحدة بدل 12.</p><div class="box idea"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>علامة عملية</div><p>لو بتكتب test ولقيت نفسك بتعمل mock لـ8 methods عشان تستخدم واحدة، فالـinterface ده أكبر من اللازم.</p></div><h2 id="s"><span class="h-idx">5</span>خلي بالك من المبالغة</h2><div class="box warn"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>interface لكل method؟</div><p>لأ. لو تلات methods دايمًا بتتنادي مع بعض ومن نفس النوع من الـclients، فهما ينتموا لنفس الـinterface. <b>الـISP عن الاستخدام الفعلي مش عن العدد.</b> السؤال: هل فيه client حقيقي محتاج جزء بس من الـinterface؟</p></div>
+      <div id="quizHost"></div>
+      <div class="done-bar" id="doneBar"></div>
+      <nav class="page-nav" id="pageNav"></nav>
+    </div>
+  </main>
+</div>
+
+<script>
+window.PAGE_ID = "solid-i";
+window.PAGE_BASE = "../";
+window.SITE_NAV = [{"id": "start", "title": "البداية", "color": "#38bdf8", "items": [{"id": "home", "title": "الرئيسية", "href": "index.html", "kw": "home مقدمة"}, {"id": "roadmap", "title": "خريطة الرحلة", "href": "pages/roadmap.html", "kw": "roadmap طريق system design"}, {"id": "plan", "title": "خطة المذاكرة", "href": "pages/plan.html", "kw": "plan جدول أسابيع"}]}, {"id": "oop", "title": "أساسيات OOP", "color": "#34d399", "items": [{"id": "oop-encapsulation", "title": "Encapsulation", "href": "oop/encapsulation.html", "kw": "التغليف private state"}, {"id": "oop-responsibility", "title": "Responsibility", "href": "oop/responsibility.html", "kw": "المسؤولية مين مسؤول"}, {"id": "oop-srp", "title": "SRP", "href": "oop/srp.html", "kw": "single responsibility سبب واحد للتغيير"}, {"id": "oop-dry", "title": "DRY", "href": "oop/dry.html", "kw": "تكرار duplication"}, {"id": "oop-coupling", "title": "Coupling", "href": "oop/coupling.html", "kw": "tight loose ارتباط"}, {"id": "oop-interface", "title": "Interface & Abstraction", "href": "oop/interface.html", "kw": "contract عقد abstraction"}, {"id": "oop-polymorphism", "title": "Polymorphism", "href": "oop/polymorphism.html", "kw": "تعدد الأشكال"}, {"id": "oop-di", "title": "Dependency Injection", "href": "oop/di.html", "kw": "حقن الاعتماديات container"}, {"id": "oop-invariants", "title": "Invariants", "href": "oop/invariants.html", "kw": "guard rails قواعد validation"}, {"id": "oop-inheritance", "title": "Inheritance", "href": "oop/inheritance.html", "kw": "وراثة is-a composition"}, {"id": "oop-map", "title": "الخريطة الذهنية", "href": "oop/map.html", "kw": "ربط المفاهيم مراجعة"}]}, {"id": "solid", "title": "SOLID", "color": "#fbbf24", "items": [{"id": "solid-index", "title": "نظرة عامة", "href": "solid/index.html", "kw": "solid مقدمة"}, {"id": "solid-s", "title": "S — Single Responsibility", "href": "solid/srp.html", "kw": "srp"}, {"id": "solid-o", "title": "O — Open / Closed", "href": "solid/ocp.html", "kw": "ocp مفتوح مغلق"}, {"id": "solid-l", "title": "L — Liskov Substitution", "href": "solid/lsp.html", "kw": "lsp"}, {"id": "solid-i", "title": "I — Interface Segregation", "href": "solid/isp.html", "kw": "isp"}, {"id": "solid-d", "title": "D — Dependency Inversion", "href": "solid/dip.html", "kw": "dip"}]}, {"id": "patterns", "title": "Design Patterns", "color": "#fb7185", "items": [{"id": "pat-index", "title": "مقدمة والتصنيفات", "href": "patterns/index.html", "kw": "gof مقدمة 23 تصنيف"}]}, {"id": "creational", "title": "Creational — الإنشاء", "color": "#f472b6", "items": [{"id": "pat-factory", "title": "Factory Method", "href": "patterns/factory-method.html", "kw": "مصنع creation subclass", "num": "C1"}, {"id": "pat-abstract-factory", "title": "Abstract Factory", "href": "patterns/abstract-factory.html", "kw": "عائلة منتجات families", "num": "C2"}, {"id": "pat-builder", "title": "Builder", "href": "patterns/builder.html", "kw": "بناء object معقد خطوة", "num": "C3"}, {"id": "pat-prototype", "title": "Prototype", "href": "patterns/prototype.html", "kw": "clone نسخ", "num": "C4"}, {"id": "pat-singleton", "title": "Singleton", "href": "patterns/singleton.html", "kw": "نسخة واحدة global", "num": "C5"}]}, {"id": "structural", "title": "Structural — التركيب", "color": "#38bdf8", "items": [{"id": "pat-adapter", "title": "Adapter", "href": "patterns/adapter.html", "kw": "محوّل legacy interface", "num": "S1"}, {"id": "pat-bridge", "title": "Bridge", "href": "patterns/bridge.html", "kw": "فصل abstraction implementation", "num": "S2"}, {"id": "pat-composite", "title": "Composite", "href": "patterns/composite.html", "kw": "شجرة tree hierarchy", "num": "S3"}, {"id": "pat-decorator", "title": "Decorator", "href": "patterns/decorator.html", "kw": "تغليف behavior wrap", "num": "S4"}, {"id": "pat-facade", "title": "Facade", "href": "patterns/facade.html", "kw": "واجهة subsystem تبسيط", "num": "S5"}, {"id": "pat-flyweight", "title": "Flyweight", "href": "patterns/flyweight.html", "kw": "ذاكرة مشاركة shared", "num": "S6"}, {"id": "pat-proxy", "title": "Proxy", "href": "patterns/proxy.html", "kw": "وكيل lazy cache", "num": "S7"}]}, {"id": "behavioral", "title": "Behavioral — السلوك", "color": "#34d399", "items": [{"id": "pat-strategy", "title": "Strategy", "href": "patterns/strategy.html", "kw": "استراتيجية payment طرق تنفيذ", "num": "B1"}, {"id": "pat-observer", "title": "Observer", "href": "patterns/observer.html", "kw": "event listener أحداث", "num": "B2"}, {"id": "pat-state", "title": "State", "href": "patterns/state.html", "kw": "حالة order status", "num": "B3"}, {"id": "pat-command", "title": "Command", "href": "patterns/command.html", "kw": "أمر action object", "num": "B4"}, {"id": "pat-chain", "title": "Chain of Responsibility", "href": "patterns/chain.html", "kw": "سلسلة middleware pipeline", "num": "B5"}, {"id": "pat-template", "title": "Template Method", "href": "patterns/template-method.html", "kw": "قالب workflow خطوات", "num": "B6"}, {"id": "pat-iterator", "title": "Iterator", "href": "patterns/iterator.html", "kw": "تكرار foreach collection", "num": "B7"}, {"id": "pat-mediator", "title": "Mediator", "href": "patterns/mediator.html", "kw": "وسيط تنسيق", "num": "B8"}, {"id": "pat-memento", "title": "Memento", "href": "patterns/memento.html", "kw": "حفظ استرجاع undo", "num": "B9"}, {"id": "pat-visitor", "title": "Visitor", "href": "patterns/visitor.html", "kw": "زائر عمليات جديدة", "num": "B10"}, {"id": "pat-interpreter", "title": "Interpreter", "href": "patterns/interpreter.html", "kw": "لغة قواعد تفسير", "num": "B11"}]}, {"id": "practice", "title": "تطبيق ومراجعة", "color": "#a78bfa", "items": [{"id": "pat-compare", "title": "اختيار الـPattern المناسب", "href": "patterns/compare.html", "kw": "فرق شجرة قرار مقارنة"}, {"id": "prj", "title": "المشروع العملي", "href": "practice/project.html", "kw": "order refactor تحديات"}, {"id": "interview", "title": "بنك أسئلة الإنترفيو", "href": "practice/interview.html", "kw": "interview أسئلة"}, {"id": "cheat", "title": "الملخص السريع", "href": "practice/cheatsheet.html", "kw": "cheatsheet مراجعة"}, {"id": "exam", "title": "الامتحان الشامل", "href": "practice/exam.html", "kw": "exam اختبار نهائي"}]}];
+window.QUIZ = {"title": "اختبر نفسك — I", "questions": [{"q": "<code>Robot implements Worker</code> ومضطر ينفّذ <code>eat()</code> فاضية. المشكلة:", "options": ["الكود أطول", "الـinterface بيجبر الـclass على حاجات مش من دورها — وده بيكسر LSP كمان", "الروبوت لازم ياكل", "لازم يكون abstract class"], "answer": 1, "exp": "الـmethod الفاضية مش كود زيادة بس — دي <strong>كذبة في العقد</strong>. أي كود بينادي <code>eat()</code> على <code>Worker</code> هيتصرف غلط مع الروبوت."}, {"q": "الفايدة الأعمق للـISP غير الـmethods الفاضية:", "options": ["الكود أقصر", "تعديل الـinterface الضخم بيجبر كل الـimplementations تتعدّل حتى غير المهتمة", "تنفيذ أسرع", "أسماء أوضح"], "answer": 1, "exp": "الـinterface الضخم بيربط الـimplementations ببعض <strong>بشكل غير مباشر</strong>: تعديل عشان class واحدة بيلمس الكل."}, {"q": "علامة عملية إن الـinterface أكبر من اللازم:", "options": ["فيه أكتر من 3 methods", "في الـtest بتعمل mock لـ8 methods عشان تستخدم واحدة", "الاسم فيه كلمة Interface", "فيه method واحدة بس"], "answer": 1, "exp": "الـ<strong>test بيفضح حجم الـinterface</strong>: لو محتاج تجهّز حاجات مالكش دعوة بيها عشان تختبر method واحدة، فالتقسيم مطلوب."}, {"q": "«اعمل interface لكل method» — التصريح ده:", "options": ["صح، ده أقصى تطبيق للـISP", "غلط — الـmethods اللي بتتنادي مع بعض من نفس الـclients تنتمي لنفس الـinterface", "صح في PHP بس", "غلط، المفروض interface واحد للمشروع"], "answer": 1, "exp": "الـISP عن <strong>أنماط الاستخدام</strong> مش عن العدد. السؤال الصح: هل فيه client حقيقي محتاج جزء بس؟"}], "id": "solid-i"};
+</script>
+<script src="../assets/app.js"></script>
+</body>
+</html>

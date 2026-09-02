@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dependency Injection — Backend Mastery</title>
+<meta name="description" content="الحاجة اللي الـclass محتاجها تيجي له من بره، بدل ما يعملها new بنفسه. لكن الفكرة أعمق من مجرد نقل الـnew للـconstructor.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2310b981'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='monospace' font-weight='bold' fill='%23042014'>B</text></svg>">
+<link rel="stylesheet" href="../assets/style.css">
+<script>(function(){try{var t=JSON.parse(localStorage.getItem('bm.theme'))||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" id="menuBtn" type="button" aria-label="القائمة"></button>
+  <a class="brand" href="../index.html">
+    <span class="brand-mark">B</span>
+    <span>Backend Mastery<small>OOP · SOLID · PATTERNS</small></span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <div class="search-wrap">
+    <input class="search-input" id="searchInput" type="search" placeholder="ابحث… ( / )" autocomplete="off">
+    <div class="search-results" id="searchResults"></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" type="button" aria-label="تبديل الوضع"></button>
+</header>
+
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="container">
+      <nav class="crumb"><a href="../index.html">الرئيسية</a><span>/</span><a href="../oop/encapsulation.html">أساسيات OOP</a><span>/</span>Dependency Injection</nav>
+<header class="page-head"><div class="eyebrow">OOP · المفهوم 8</div><h1>Dependency Injection</h1><p class="lede">الحاجة اللي الـclass محتاجها تيجي له من بره، بدل ما يعملها new بنفسه. لكن الفكرة أعمق من مجرد نقل الـnew للـconstructor.</p></header>
+      <nav class="toc"><div class="toc-title">محتويات الصفحة</div><ol><li><a href="#s">المشكلة</a></li><li><a href="#s">قلب الاتجاه</a></li><li><a href="#s">أنواع الحقن</a></li><li><a href="#di-di-container">DI مش DI Container</a></li><li><a href="#s">الغلطات الشائعة</a></li><li><a href="#interview">Interview</a></li></ol></nav>
+      <div class="remember"><span class="rk">افتكرها</span><p>DI مش مجرد إنك تحط dependency في الـconstructor. الفكرة: <em>الـclass ما ينشئش dependencies بنفسه؛ إنشاؤها يبقى خارج الـbusiness logic.</em></p></div><h2 id="s"><span class="h-idx">1</span>المشكلة</h2><pre data-lang="php">class Order
+{
+    public function sendConfirmationEmail(): void
+    {
+        $emailSender = new EmailSender();      // ← هنا
+        $emailSender-&gt;send($this-&gt;customer-&gt;email, &#x27;Order confirmation&#x27;, $body);
+    }
+}</pre><p>الـ<code>Order</code> بقى:</p><ol><li>عارف dependency معينة بالاسم.</li><li>مسؤول عن إنشائها وعن الـconfig بتاعها.</li><li>مربوط بيها، فصعب تبدّلها في الـtesting أو في المستقبل.</li></ol><div class="box problem"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>التأثير على الـtesting</div><p>لو عايز تعمل test للـ<code>Order</code>، كل مرة هيتبعت إيميل حقيقي. مفيش طريقة تمنعه غير:</p><ul><li>إنك تشغّل SMTP server وهمي (بطيء ومعقّد)، أو</li><li>تحط <code>if ($env === 'testing')</code> جوه الـbusiness logic (كارثة)، أو</li><li>ما تعملش test أصلًا (اللي بيحصل غالبًا).</li></ul></div><h2 id="s"><span class="h-idx">2</span>قلب الاتجاه</h2><div class="compare"><div class="bad"><div class="ch">✕ الـclass بينشئ dependencies</div><div class="cb"><div class="diagram">Order
+  ↓
+new EmailSender()
+  ↓
+SMTP config</div></div></div><div class="good"><div class="ch">✓ الـdependency بتيجي من بره</div><div class="cb"><div class="diagram">Container / Caller
+  ↓  بينشئ
+Mailer
+  ↓  بيحقن
+Order</div></div></div></div><pre data-lang="php">class Order
+{
+    public function __construct(
+        private Mailer $mailer
+    ) {}
+
+    public function sendConfirmation(): void
+    {
+        $this-&gt;mailer-&gt;send(new OrderConfirmation($this));
+    }
+}
+
+// في الـproduction
+$order = new Order(new SmtpMailer($config));
+
+// في الـtest
+$order = new Order(new FakeMailer());</pre><h2 id="s"><span class="h-idx">3</span>أنواع الحقن</h2><div class="table-wrap"><table><thead><tr><th>النوع</th><th>الشكل</th><th>امتى</th></tr></thead><tbody><tr><td>Constructor</td><td><code>__construct(Mailer $m)</code></td><td>الافتراضي — للـdependencies اللي الـobject ما يشتغلش من غيرها</td></tr><tr><td>Setter</td><td><code>setLogger(Logger $l)</code></td><td>للحاجات الاختيارية اللي ليها default معقول</td></tr><tr><td>Method</td><td><code>pay(PaymentGateway $g)</code></td><td>لما الـdependency تخص عملية واحدة بس، مش الـobject كله</td></tr></tbody></table></div><div class="box idea"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>قاعدة</div><p>لو الـobject مينفعش يشتغل من غير الـdependency → constructor. كده مستحيل يتعمل object في حالة ناقصة.</p></div><h2 id="di-di-container"><span class="h-idx">4</span>DI مش DI Container</h2><div class="box warn"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>أشهر خلط</div><p><b>Dependency Injection</b> = فكرة تصميم: الـdependencies تيجي من بره.</p><p><b>DI Container</b> = أداة (زي الـservice container في Laravel) بتأتمت إنشاء الـobjects دي.</p><p>تقدر تعمل DI صح من غير أي container خالص — بإنك تبني الـobjects بإيدك في نقطة واحدة. والعكس صحيح: ممكن تستخدم container وتفضل تكسر الـDI:</p><pre data-lang="php">class Order
+{
+    public function send(): void
+    {
+        // الـcontainer موجود، لكن الـclass لسه بتجيب dependency بنفسها
+        $mailer = app(Mailer::class);      // Service Locator، مش DI
+        $mailer-&gt;send(...);
+    }
+}</pre><p>ده اسمه <b>Service Locator</b>. الفرق الجوهري: مع الـDI، الـdependencies بتاعة الـclass <b>معلنة</b> في الـconstructor وأي حد يبص على الـsignature يعرفها. مع الـService Locator، مخبّية جوه الـmethods ومحدش يعرفها غير لما يقرا كل سطر.</p></div><h2 id="s"><span class="h-idx">5</span>الغلطات الشائعة</h2><ul><li><b>Constructor بـ12 dependency</b> — ده مش مشكلة DI، ده الـclass كسرت SRP. الـDI بس فضحتها.</li><li><b>حقن الـContainer نفسه</b> — <code>__construct(Container $c)</code> بيرجّعك لـService Locator.</li><li><b>حقن قيم configuration كـobjects</b> — الـAPI key مش dependency، مرّرها كـvalue.</li><li><b>عمل interface لكل حاجة عشان تحقنها</b> — الحقن ممكن يحصل على class عادية برضه.</li></ul><div class="box idea"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>الـconstructor كمقياس جودة</div><p>عدد الـdependencies في الـconstructor مؤشر مجاني على الـSRP. تلاتة أو أربعة = طبيعي. تمانية = الـclass بتعمل شغل أكتر من اللازم — مش المطلوب تخبّي الحقن، المطلوب تقسّم الـclass.</p></div><h2 id="interview"><span class="h-idx">6</span>Interview</h2><div class="box good"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14.01l-3-3"/></svg>سؤال: ليه DI مهمة؟</div><blockquote><p>«عشان الـclass تركّز على شغلها بس، ومسؤولية إنشاء وتوصيل الـdependencies تبقى برّه. ده بيديني تلات مكاسب: أقدر أبدّل الـimplementation من غير ما ألمس الـbusiness logic، أقدر أحقن fake في الـtests، والـclass بتعلن احتياجاتها بوضوح في الـconstructor فأي حد يقراها يعرف هي معتمدة على إيه.»</p></blockquote><p><b>Follow-up:</b> «الفرق بين DI و DI Container؟» — الأولى فكرة تصميم، والتانية أداة بتأتمت التوصيل. تقدر تعمل DI من غير container، وتقدر تستخدم container وتكسر الـDI بالـService Locator.</p></div><div class="remember"><span class="rk">الخلاصة</span><p>الحاجة اللي الـclass محتاجها تيجي له من بره، بدل ما يعملها <code>new</code> بنفسه.</p></div>
+      <div id="quizHost"></div>
+      <div class="done-bar" id="doneBar"></div>
+      <nav class="page-nav" id="pageNav"></nav>
+    </div>
+  </main>
+</div>
+
+<script>
+window.PAGE_ID = "oop-di";
+window.PAGE_BASE = "../";
+window.SITE_NAV = [{"id": "start", "title": "البداية", "color": "#38bdf8", "items": [{"id": "home", "title": "الرئيسية", "href": "index.html", "kw": "home مقدمة"}, {"id": "roadmap", "title": "خريطة الرحلة", "href": "pages/roadmap.html", "kw": "roadmap طريق system design"}, {"id": "plan", "title": "خطة المذاكرة", "href": "pages/plan.html", "kw": "plan جدول أسابيع"}]}, {"id": "oop", "title": "أساسيات OOP", "color": "#34d399", "items": [{"id": "oop-encapsulation", "title": "Encapsulation", "href": "oop/encapsulation.html", "kw": "التغليف private state"}, {"id": "oop-responsibility", "title": "Responsibility", "href": "oop/responsibility.html", "kw": "المسؤولية مين مسؤول"}, {"id": "oop-srp", "title": "SRP", "href": "oop/srp.html", "kw": "single responsibility سبب واحد للتغيير"}, {"id": "oop-dry", "title": "DRY", "href": "oop/dry.html", "kw": "تكرار duplication"}, {"id": "oop-coupling", "title": "Coupling", "href": "oop/coupling.html", "kw": "tight loose ارتباط"}, {"id": "oop-interface", "title": "Interface & Abstraction", "href": "oop/interface.html", "kw": "contract عقد abstraction"}, {"id": "oop-polymorphism", "title": "Polymorphism", "href": "oop/polymorphism.html", "kw": "تعدد الأشكال"}, {"id": "oop-di", "title": "Dependency Injection", "href": "oop/di.html", "kw": "حقن الاعتماديات container"}, {"id": "oop-invariants", "title": "Invariants", "href": "oop/invariants.html", "kw": "guard rails قواعد validation"}, {"id": "oop-inheritance", "title": "Inheritance", "href": "oop/inheritance.html", "kw": "وراثة is-a composition"}, {"id": "oop-map", "title": "الخريطة الذهنية", "href": "oop/map.html", "kw": "ربط المفاهيم مراجعة"}]}, {"id": "solid", "title": "SOLID", "color": "#fbbf24", "items": [{"id": "solid-index", "title": "نظرة عامة", "href": "solid/index.html", "kw": "solid مقدمة"}, {"id": "solid-s", "title": "S — Single Responsibility", "href": "solid/srp.html", "kw": "srp"}, {"id": "solid-o", "title": "O — Open / Closed", "href": "solid/ocp.html", "kw": "ocp مفتوح مغلق"}, {"id": "solid-l", "title": "L — Liskov Substitution", "href": "solid/lsp.html", "kw": "lsp"}, {"id": "solid-i", "title": "I — Interface Segregation", "href": "solid/isp.html", "kw": "isp"}, {"id": "solid-d", "title": "D — Dependency Inversion", "href": "solid/dip.html", "kw": "dip"}]}, {"id": "patterns", "title": "Design Patterns", "color": "#fb7185", "items": [{"id": "pat-index", "title": "مقدمة والتصنيفات", "href": "patterns/index.html", "kw": "gof مقدمة 23 تصنيف"}]}, {"id": "creational", "title": "Creational — الإنشاء", "color": "#f472b6", "items": [{"id": "pat-factory", "title": "Factory Method", "href": "patterns/factory-method.html", "kw": "مصنع creation subclass", "num": "C1"}, {"id": "pat-abstract-factory", "title": "Abstract Factory", "href": "patterns/abstract-factory.html", "kw": "عائلة منتجات families", "num": "C2"}, {"id": "pat-builder", "title": "Builder", "href": "patterns/builder.html", "kw": "بناء object معقد خطوة", "num": "C3"}, {"id": "pat-prototype", "title": "Prototype", "href": "patterns/prototype.html", "kw": "clone نسخ", "num": "C4"}, {"id": "pat-singleton", "title": "Singleton", "href": "patterns/singleton.html", "kw": "نسخة واحدة global", "num": "C5"}]}, {"id": "structural", "title": "Structural — التركيب", "color": "#38bdf8", "items": [{"id": "pat-adapter", "title": "Adapter", "href": "patterns/adapter.html", "kw": "محوّل legacy interface", "num": "S1"}, {"id": "pat-bridge", "title": "Bridge", "href": "patterns/bridge.html", "kw": "فصل abstraction implementation", "num": "S2"}, {"id": "pat-composite", "title": "Composite", "href": "patterns/composite.html", "kw": "شجرة tree hierarchy", "num": "S3"}, {"id": "pat-decorator", "title": "Decorator", "href": "patterns/decorator.html", "kw": "تغليف behavior wrap", "num": "S4"}, {"id": "pat-facade", "title": "Facade", "href": "patterns/facade.html", "kw": "واجهة subsystem تبسيط", "num": "S5"}, {"id": "pat-flyweight", "title": "Flyweight", "href": "patterns/flyweight.html", "kw": "ذاكرة مشاركة shared", "num": "S6"}, {"id": "pat-proxy", "title": "Proxy", "href": "patterns/proxy.html", "kw": "وكيل lazy cache", "num": "S7"}]}, {"id": "behavioral", "title": "Behavioral — السلوك", "color": "#34d399", "items": [{"id": "pat-strategy", "title": "Strategy", "href": "patterns/strategy.html", "kw": "استراتيجية payment طرق تنفيذ", "num": "B1"}, {"id": "pat-observer", "title": "Observer", "href": "patterns/observer.html", "kw": "event listener أحداث", "num": "B2"}, {"id": "pat-state", "title": "State", "href": "patterns/state.html", "kw": "حالة order status", "num": "B3"}, {"id": "pat-command", "title": "Command", "href": "patterns/command.html", "kw": "أمر action object", "num": "B4"}, {"id": "pat-chain", "title": "Chain of Responsibility", "href": "patterns/chain.html", "kw": "سلسلة middleware pipeline", "num": "B5"}, {"id": "pat-template", "title": "Template Method", "href": "patterns/template-method.html", "kw": "قالب workflow خطوات", "num": "B6"}, {"id": "pat-iterator", "title": "Iterator", "href": "patterns/iterator.html", "kw": "تكرار foreach collection", "num": "B7"}, {"id": "pat-mediator", "title": "Mediator", "href": "patterns/mediator.html", "kw": "وسيط تنسيق", "num": "B8"}, {"id": "pat-memento", "title": "Memento", "href": "patterns/memento.html", "kw": "حفظ استرجاع undo", "num": "B9"}, {"id": "pat-visitor", "title": "Visitor", "href": "patterns/visitor.html", "kw": "زائر عمليات جديدة", "num": "B10"}, {"id": "pat-interpreter", "title": "Interpreter", "href": "patterns/interpreter.html", "kw": "لغة قواعد تفسير", "num": "B11"}]}, {"id": "practice", "title": "تطبيق ومراجعة", "color": "#a78bfa", "items": [{"id": "pat-compare", "title": "اختيار الـPattern المناسب", "href": "patterns/compare.html", "kw": "فرق شجرة قرار مقارنة"}, {"id": "prj", "title": "المشروع العملي", "href": "practice/project.html", "kw": "order refactor تحديات"}, {"id": "interview", "title": "بنك أسئلة الإنترفيو", "href": "practice/interview.html", "kw": "interview أسئلة"}, {"id": "cheat", "title": "الملخص السريع", "href": "practice/cheatsheet.html", "kw": "cheatsheet مراجعة"}, {"id": "exam", "title": "الامتحان الشامل", "href": "practice/exam.html", "kw": "exam اختبار نهائي"}]}];
+window.QUIZ = {"title": "اختبر نفسك — Dependency Injection", "questions": [{"q": "الفكرة الجوهرية في DI:", "options": ["تحط كل الـparameters في الـconstructor", "الـclass ما تنشئش dependencies بنفسها؛ الإنشاء يبقى برّه الـbusiness logic", "تستخدم DI container", "تعمل interface لكل class"], "answer": 1, "exp": "المكان (constructor / setter / method) تفصيلة. <strong>الجوهر: فصل «إنشاء الـdependency» عن «استخدامها».</strong>"}, {"q": "<code>$mailer = app(Mailer::class);</code> جوه method في class. ده:", "options": ["Dependency Injection صح", "Service Locator — الـdependency مخبّية مش معلنة", "أفضل من الـconstructor injection", "مالوش اسم"], "answer": 1, "exp": "<strong>Service Locator</strong>. الفرق: مع DI الـdependencies معلنة في الـsignature وأي حد يشوفها. هنا لازم تقرا كل سطر جوه الـclass عشان تعرف هي معتمدة على إيه — وده بيصعّب الـtesting والفهم."}, {"q": "constructor فيه 12 dependency. الحل الصح:", "options": ["تحوّلهم لـsetter injection", "تحقن الـContainer وتجيبهم منه", "تقسّم الـclass — دي مشكلة SRP والـDI فضحتها", "تحطهم في array واحد"], "answer": 2, "exp": "الـconstructor الطويل <strong>عرض مش مرض</strong>. تحويلهم لـsetters أو حقن الـcontainer بيخبّي المشكلة بس. الـclass دي بتعمل شغل أكتر من اللازم."}, {"q": "الفرق بين DI و DI Container:", "options": ["نفس الحاجة", "DI فكرة تصميم، الـContainer أداة بتأتمت التوصيل", "DI في PHP والـContainer في Java", "الـContainer أحدث وحل محل DI"], "answer": 1, "exp": "تقدر تعمل DI بإيدك من غير أي container. وتقدر تستخدم container وتفضل تكسر DI عن طريق الـService Locator. <strong>الأداة مش المبدأ.</strong>"}, {"q": "امتى setter injection تكون مناسبة أكتر من constructor؟", "options": ["دايمًا", "لما الـdependency اختيارية وليها default معقول", "لما يكون فيه أكتر من 5 dependencies", "أبدًا"], "answer": 1, "exp": "الـconstructor بيضمن إن الـobject <strong>ما يتعملش ناقص</strong>. فلو الـdependency ضرورية → constructor. الـsetter للاختياري بس (زي logger له null implementation افتراضي)."}, {"q": "إزاي DI بتخلي الـtesting أسهل؟ اضرب مثال من مشروع الـOrder.", "kind": "سؤال مفتوح", "exp": "<b>الإجابة النموذجية:</b> في المشروع، <code>Order::sendConfirmationEmail()</code> بتعمل <code>new EmailSender()</code> جواها. يعني أي test للـOrder هيحاول يبعت إيميل حقيقي — فالـtest بيبقى بطيء، ومعتمد على شبكة، وله side effect خارجي. مع DI بتحقن <code>FakeMailer</code> بيسجّل الرسايل في array، والـtest يقول: <code>assertCount(1, $fakeMailer->sent)</code>. المكسب مش بس السرعة — <strong>بقى عندك طريقة تتأكد إن الإيميل اتبعت للعنوان الصح بالمحتوى الصح</strong>، وده كان مستحيل قبل كده."}], "id": "oop-di"};
+</script>
+<script src="../assets/app.js"></script>
+</body>
+</html>

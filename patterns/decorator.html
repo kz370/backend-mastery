@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decorator — Backend Mastery</title>
+<meta name="description" content="عندي object شغال كويس، وعايز أضيف له behavior جديد من غير ما أعدّل الـobject الأصلي.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2310b981'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='monospace' font-weight='bold' fill='%23042014'>B</text></svg>">
+<link rel="stylesheet" href="../assets/style.css">
+<script>(function(){try{var t=JSON.parse(localStorage.getItem('bm.theme'))||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" id="menuBtn" type="button" aria-label="القائمة"></button>
+  <a class="brand" href="../index.html">
+    <span class="brand-mark">B</span>
+    <span>Backend Mastery<small>OOP · SOLID · PATTERNS</small></span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <div class="search-wrap">
+    <input class="search-input" id="searchInput" type="search" placeholder="ابحث… ( / )" autocomplete="off">
+    <div class="search-results" id="searchResults"></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" type="button" aria-label="تبديل الوضع"></button>
+</header>
+
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="container">
+      <nav class="crumb"><a href="../index.html">الرئيسية</a><span>/</span><a href="../patterns/adapter.html">Structural — التركيب</a><span>/</span>Decorator</nav>
+<header class="page-head"><div class="eyebrow">Structural · S4</div><h1>Decorator</h1><p class="lede">عندي object شغال كويس، وعايز أضيف له behavior جديد من غير ما أعدّل الـobject الأصلي.</p></header>
+      <nav class="toc"><div class="toc-title">محتويات الصفحة</div><ol><li><a href="#s">المشكلة</a></li><li><a href="#s">الحل</a></li><li><a href="#s">ليه ده مفيد؟</a></li><li><a href="#s">الشرط الأساسي</a></li><li><a href="#decorator-vs-proxy-vs-middleware">Decorator vs Proxy vs Middleware</a></li><li><a href="#interview">Interview</a></li></ol></nav>
+      <div class="remember"><span class="rk">افتكرها</span><p>Decorator = <em>أضيف behavior للـobject من غير ما أعدّل الـobject الأصلي</em> — بأني ألفّه.</p></div><h2 id="s"><span class="h-idx">1</span>المشكلة</h2><pre data-lang="php">class ImageProcessor
+{
+    public function process(string $image): void
+    {
+        // resize image
+    }
+}</pre><p>وبعدين عايز تضيف: <b>Watermark</b>، <b>Encryption</b>، <b>Compression</b>. والحاجات دي ممكن تتركّب مع بعض بأي شكل.</p><div class="box problem"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>الحل الغلط: class لكل تركيبة</div><div class="diagram">ImageProcessorWithWatermark
+ImageProcessorWithEncryption
+ImageProcessorWithCompression
+ImageProcessorWithWatermarkAndEncryption
+ImageProcessorWithWatermarkAndCompression
+ImageProcessorWithEncryptionAndCompression
+ImageProcessorWithAllThree
+...  2^n classes</div></div><h2 id="s"><span class="h-idx">2</span>الحل</h2><pre data-lang="php">interface ImageProcessorContract
+{
+    public function process(string $image): void;
+}
+
+class ImageProcessor implements ImageProcessorContract
+{
+    public function process(string $image): void
+    {
+        // resize
+    }
+}
+
+class WatermarkDecorator implements ImageProcessorContract
+{
+    public function __construct(
+        private ImageProcessorContract $processor    // ← بيلفّ واحد من نفس النوع
+    ) {}
+
+    public function process(string $image): void
+    {
+        // add watermark
+        $this-&gt;processor-&gt;process($image);
+    }
+}</pre><h3 id="">التركيب</h3><pre data-lang="php">$processor = new ImageProcessor();
+$processor = new CompressionDecorator($processor);
+$processor = new EncryptionDecorator($processor);
+$processor = new WatermarkDecorator($processor);
+
+$processor-&gt;process($image);</pre><div class="diagram">WatermarkDecorator
+      ↓
+EncryptionDecorator
+      ↓
+CompressionDecorator
+      ↓
+ImageProcessor       ← الـobject الأصلي</div><p>لاحظ إن الـdecorator بيقدر يضيف سلوك <b>قبل</b> النداء، <b>بعده</b>، أو الاتنين — أو حتى يمنع النداء أصلًا.</p><div class="box idea"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>ملاحظة عن الترتيب</div><p>ترتيب الـDecorators مش قاعدة ثابتة في الـPattern؛ الترتيب بيتحدد حسب الـworkflow والمتطلبات. المهم إن الـDecorators <b>ممكن تتركّب فوق بعض</b>.</p></div><h2 id="s"><span class="h-idx">3</span>ليه ده مفيد؟</h2><ul><li>نضيف behavior من غير تعديل الـobject الأصلي (<a href='../solid/ocp.html'>Open/Closed</a>).</li><li>نقدر نركّب أكتر من behavior مع بعض بأي ترتيب.</li><li>مش محتاجين class جديدة لكل combination — <b>n decorators بدل 2ⁿ classes</b>.</li><li>التركيب ممكن يتحدد <b>في وقت التشغيل</b> حسب config أو حالة المستخدم.</li></ul><h2 id="s"><span class="h-idx">4</span>الشرط الأساسي</h2><div class="box warn"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>الـDecorator لازم ينفّذ نفس الـinterface</div><p>دي النقطة اللي بتفرق الـDecorator عن أي wrapper عادي. لأنه بينفّذ نفس الـinterface:</p><ul><li>الـclient ما يعرفش إنه بيتعامل مع decorator أصلًا.</li><li>تقدر تلفّ decorator جوه decorator تاني.</li><li>تقدر تشيل decorator من غير ما تلمس أي كود تاني.</li></ul><p>لو الـwrapper بيغيّر الـinterface، فده <a href='../patterns/adapter.html'>Adapter</a> مش Decorator.</p></div><h2 id="decorator-vs-proxy-vs-middleware"><span class="h-idx">5</span>Decorator vs Proxy vs Middleware</h2><div class="table-wrap"><table><thead><tr><th></th><th>Decorator</th><th>Proxy</th><th>Middleware</th></tr></thead><tbody><tr><td>الهدف</td><td>إضافة behavior</td><td>التحكم في الوصول</td><td>معالجة الطلب في سلسلة</td></tr><tr><td>بيلف إيه</td><td>object الـclient اداهوله</td><td>غالبًا بينشئ اللي بيلفّه بنفسه</td><td>الـrequest</td></tr><tr><td>العدد</td><td>كذا decorator متراكمين</td><td>غالبًا واحد</td><td>سلسلة مرتّبة</td></tr></tbody></table></div><p>الـmiddleware في Laravel قريبة جدًا من الفكرة، لكنها أقرب للـ<a href='../patterns/chain.html'>Chain of Responsibility</a>.</p><h2 id="interview"><span class="h-idx">6</span>Interview</h2><div class="box good"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14.01l-3-3"/></svg>What is the Decorator Pattern?</div><blockquote><p>«عندي object شغّال وعايز أضيف عليه behavior جديد من غير ما أعدّل الـobject الأصلي. بعمل Decorator بينفّذ نفس الـinterface، وبيمسك الـobject الأصلي جواه، ويضيف السلوك قبل أو بعد ما يستدعيه. كده أقدر أركّب أكتر من behavior مع بعض من غير ما أعمل class لكل تركيبة.»</p></blockquote></div><div class="remember"><span class="rk">الخلاصة</span><p>عندي Object شغال وعايز أضيف عليه Behavior من غير ما أعدّله، فبلفّه بـDecorator.</p></div>
+      <div id="quizHost"></div>
+      <div class="done-bar" id="doneBar"></div>
+      <nav class="page-nav" id="pageNav"></nav>
+    </div>
+  </main>
+</div>
+
+<script>
+window.PAGE_ID = "pat-decorator";
+window.PAGE_BASE = "../";
+window.SITE_NAV = [{"id": "start", "title": "البداية", "color": "#38bdf8", "items": [{"id": "home", "title": "الرئيسية", "href": "index.html", "kw": "home مقدمة"}, {"id": "roadmap", "title": "خريطة الرحلة", "href": "pages/roadmap.html", "kw": "roadmap طريق system design"}, {"id": "plan", "title": "خطة المذاكرة", "href": "pages/plan.html", "kw": "plan جدول أسابيع"}]}, {"id": "oop", "title": "أساسيات OOP", "color": "#34d399", "items": [{"id": "oop-encapsulation", "title": "Encapsulation", "href": "oop/encapsulation.html", "kw": "التغليف private state"}, {"id": "oop-responsibility", "title": "Responsibility", "href": "oop/responsibility.html", "kw": "المسؤولية مين مسؤول"}, {"id": "oop-srp", "title": "SRP", "href": "oop/srp.html", "kw": "single responsibility سبب واحد للتغيير"}, {"id": "oop-dry", "title": "DRY", "href": "oop/dry.html", "kw": "تكرار duplication"}, {"id": "oop-coupling", "title": "Coupling", "href": "oop/coupling.html", "kw": "tight loose ارتباط"}, {"id": "oop-interface", "title": "Interface & Abstraction", "href": "oop/interface.html", "kw": "contract عقد abstraction"}, {"id": "oop-polymorphism", "title": "Polymorphism", "href": "oop/polymorphism.html", "kw": "تعدد الأشكال"}, {"id": "oop-di", "title": "Dependency Injection", "href": "oop/di.html", "kw": "حقن الاعتماديات container"}, {"id": "oop-invariants", "title": "Invariants", "href": "oop/invariants.html", "kw": "guard rails قواعد validation"}, {"id": "oop-inheritance", "title": "Inheritance", "href": "oop/inheritance.html", "kw": "وراثة is-a composition"}, {"id": "oop-map", "title": "الخريطة الذهنية", "href": "oop/map.html", "kw": "ربط المفاهيم مراجعة"}]}, {"id": "solid", "title": "SOLID", "color": "#fbbf24", "items": [{"id": "solid-index", "title": "نظرة عامة", "href": "solid/index.html", "kw": "solid مقدمة"}, {"id": "solid-s", "title": "S — Single Responsibility", "href": "solid/srp.html", "kw": "srp"}, {"id": "solid-o", "title": "O — Open / Closed", "href": "solid/ocp.html", "kw": "ocp مفتوح مغلق"}, {"id": "solid-l", "title": "L — Liskov Substitution", "href": "solid/lsp.html", "kw": "lsp"}, {"id": "solid-i", "title": "I — Interface Segregation", "href": "solid/isp.html", "kw": "isp"}, {"id": "solid-d", "title": "D — Dependency Inversion", "href": "solid/dip.html", "kw": "dip"}]}, {"id": "patterns", "title": "Design Patterns", "color": "#fb7185", "items": [{"id": "pat-index", "title": "مقدمة والتصنيفات", "href": "patterns/index.html", "kw": "gof مقدمة 23 تصنيف"}]}, {"id": "creational", "title": "Creational — الإنشاء", "color": "#f472b6", "items": [{"id": "pat-factory", "title": "Factory Method", "href": "patterns/factory-method.html", "kw": "مصنع creation subclass", "num": "C1"}, {"id": "pat-abstract-factory", "title": "Abstract Factory", "href": "patterns/abstract-factory.html", "kw": "عائلة منتجات families", "num": "C2"}, {"id": "pat-builder", "title": "Builder", "href": "patterns/builder.html", "kw": "بناء object معقد خطوة", "num": "C3"}, {"id": "pat-prototype", "title": "Prototype", "href": "patterns/prototype.html", "kw": "clone نسخ", "num": "C4"}, {"id": "pat-singleton", "title": "Singleton", "href": "patterns/singleton.html", "kw": "نسخة واحدة global", "num": "C5"}]}, {"id": "structural", "title": "Structural — التركيب", "color": "#38bdf8", "items": [{"id": "pat-adapter", "title": "Adapter", "href": "patterns/adapter.html", "kw": "محوّل legacy interface", "num": "S1"}, {"id": "pat-bridge", "title": "Bridge", "href": "patterns/bridge.html", "kw": "فصل abstraction implementation", "num": "S2"}, {"id": "pat-composite", "title": "Composite", "href": "patterns/composite.html", "kw": "شجرة tree hierarchy", "num": "S3"}, {"id": "pat-decorator", "title": "Decorator", "href": "patterns/decorator.html", "kw": "تغليف behavior wrap", "num": "S4"}, {"id": "pat-facade", "title": "Facade", "href": "patterns/facade.html", "kw": "واجهة subsystem تبسيط", "num": "S5"}, {"id": "pat-flyweight", "title": "Flyweight", "href": "patterns/flyweight.html", "kw": "ذاكرة مشاركة shared", "num": "S6"}, {"id": "pat-proxy", "title": "Proxy", "href": "patterns/proxy.html", "kw": "وكيل lazy cache", "num": "S7"}]}, {"id": "behavioral", "title": "Behavioral — السلوك", "color": "#34d399", "items": [{"id": "pat-strategy", "title": "Strategy", "href": "patterns/strategy.html", "kw": "استراتيجية payment طرق تنفيذ", "num": "B1"}, {"id": "pat-observer", "title": "Observer", "href": "patterns/observer.html", "kw": "event listener أحداث", "num": "B2"}, {"id": "pat-state", "title": "State", "href": "patterns/state.html", "kw": "حالة order status", "num": "B3"}, {"id": "pat-command", "title": "Command", "href": "patterns/command.html", "kw": "أمر action object", "num": "B4"}, {"id": "pat-chain", "title": "Chain of Responsibility", "href": "patterns/chain.html", "kw": "سلسلة middleware pipeline", "num": "B5"}, {"id": "pat-template", "title": "Template Method", "href": "patterns/template-method.html", "kw": "قالب workflow خطوات", "num": "B6"}, {"id": "pat-iterator", "title": "Iterator", "href": "patterns/iterator.html", "kw": "تكرار foreach collection", "num": "B7"}, {"id": "pat-mediator", "title": "Mediator", "href": "patterns/mediator.html", "kw": "وسيط تنسيق", "num": "B8"}, {"id": "pat-memento", "title": "Memento", "href": "patterns/memento.html", "kw": "حفظ استرجاع undo", "num": "B9"}, {"id": "pat-visitor", "title": "Visitor", "href": "patterns/visitor.html", "kw": "زائر عمليات جديدة", "num": "B10"}, {"id": "pat-interpreter", "title": "Interpreter", "href": "patterns/interpreter.html", "kw": "لغة قواعد تفسير", "num": "B11"}]}, {"id": "practice", "title": "تطبيق ومراجعة", "color": "#a78bfa", "items": [{"id": "pat-compare", "title": "اختيار الـPattern المناسب", "href": "patterns/compare.html", "kw": "فرق شجرة قرار مقارنة"}, {"id": "prj", "title": "المشروع العملي", "href": "practice/project.html", "kw": "order refactor تحديات"}, {"id": "interview", "title": "بنك أسئلة الإنترفيو", "href": "practice/interview.html", "kw": "interview أسئلة"}, {"id": "cheat", "title": "الملخص السريع", "href": "practice/cheatsheet.html", "kw": "cheatsheet مراجعة"}, {"id": "exam", "title": "الامتحان الشامل", "href": "practice/exam.html", "kw": "exam اختبار نهائي"}]}];
+window.QUIZ = {"title": "اختبر نفسك — Decorator", "questions": [{"q": "عندك <code>UserService</code> جاهز وعايز تضيف Logging ثم Caching ثم Authorization، وممكن تضيفهم فوق بعض. أنسب pattern:", "options": ["Decorator", "Adapter", "Facade", "Factory Method"], "answer": 0, "exp": "<strong>Decorator</strong>: object موجود + إضافة سلوك + قابلية التركيب. الثلاثة دول التوقيع بتاع الـDecorator."}, {"q": "الشرط التقني اللي لازم يتحقق في الـDecorator:", "options": ["يكون abstract", "ينفّذ نفس الـinterface بتاع الـobject اللي بيلفّه", "يكون static", "يرث من الـobject الأصلي"], "answer": 1, "exp": "لأنه بينفّذ نفس الـinterface، الـclient ما يفرقش، وتقدر تلفّ decorator جوه decorator تاني. لو غيّر الـinterface يبقى <strong>Adapter</strong>."}, {"q": "من غير Decorator، 3 behaviors قابلة للتركيب محتاجة كام class؟", "options": ["3", "6", "8 (2³ لكل التركيبات)", "1"], "answer": 2, "exp": "<strong>2ⁿ</strong> — كل التركيبات الممكنة. مع الـDecorator بتبقى <strong>n</strong> بس."}, {"q": "الـDecorator يقدر يضيف السلوك:", "options": ["قبل النداء بس", "بعد النداء بس", "قبل أو بعد أو الاتنين — أو حتى يمنع النداء", "في نفس وقت النداء بس"], "answer": 2, "exp": "الـdecorator متحكم كامل في النداء الداخلي — ودي اللي بتخليه ينفع لـcaching (يمنع النداء لو النتيجة موجودة) وretry (يعيد النداء)."}, {"q": "الفرق بين Decorator و Adapter بجملة واحدة:", "kind": "سؤال مفتوح", "exp": "<b>الإجابة النموذجية:</b> <strong>Adapter بيغيّر الـinterface عشان يحقق التوافق؛ Decorator بيحافظ على نفس الـinterface ويضيف سلوك.</strong> الاتنين بيلفّوا object، لكن الأول بيتعامل مع مشكلة «الشكلين مختلفين» والتاني مع مشكلة «عايز أزوّد حاجة». ولإن الـDecorator بيحافظ على الـinterface، تقدر تركّب أكتر من واحد فوق بعض — وده مستحيل مع الـAdapter."}], "id": "pat-decorator"};
+</script>
+<script src="../assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototype — Backend Mastery</title>
+<meta name="description" content="بدل ما تنشئ object جديد من الصفر، تنسخ واحد موجود وتعدّل عليه — لما الإنشاء يكون مكلف أو معقد.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2310b981'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='monospace' font-weight='bold' fill='%23042014'>B</text></svg>">
+<link rel="stylesheet" href="../assets/style.css">
+<script>(function(){try{var t=JSON.parse(localStorage.getItem('bm.theme'))||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" id="menuBtn" type="button" aria-label="القائمة"></button>
+  <a class="brand" href="../index.html">
+    <span class="brand-mark">B</span>
+    <span>Backend Mastery<small>OOP · SOLID · PATTERNS</small></span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <div class="search-wrap">
+    <input class="search-input" id="searchInput" type="search" placeholder="ابحث… ( / )" autocomplete="off">
+    <div class="search-results" id="searchResults"></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" type="button" aria-label="تبديل الوضع"></button>
+</header>
+
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="container">
+      <nav class="crumb"><a href="../index.html">الرئيسية</a><span>/</span><a href="../patterns/factory-method.html">Creational — الإنشاء</a><span>/</span>Prototype</nav>
+<header class="page-head"><div class="eyebrow">Creational · C4</div><h1>Prototype</h1><p class="lede">بدل ما تنشئ object جديد من الصفر، تنسخ واحد موجود وتعدّل عليه — لما الإنشاء يكون مكلف أو معقد.</p></header>
+      <nav class="toc"><div class="toc-title">محتويات الصفحة</div><ol><li><a href="#s">المشكلة</a></li><li><a href="#s">الحل</a></li><li><a href="#shallow-vs-deep-copy">Shallow vs Deep copy</a></li><li><a href="#s">امتى تستخدمه</a></li><li><a href="#s">في العالم الحقيقي</a></li><li><a href="#interview">Interview</a></li></ol></nav>
+      <div class="remember"><span class="rk">افتكرها</span><p>Prototype = <em>انسخ الموجود بدل ما تبني من الأول</em>.</p></div><h2 id="s"><span class="h-idx">1</span>المشكلة</h2><p>تخيّل object بناؤه مكلف: بيقرا من الـdatabase، أو بيحمّل config كبيرة، أو بيعمل حسابات تقيلة:</p><pre data-lang="php">class ReportTemplate
+{
+    public function __construct(string $path)
+    {
+        $this-&gt;layout   = $this-&gt;parseLayout($path);        // بطيئة
+        $this-&gt;styles   = $this-&gt;loadStyles();              // بطيئة
+        $this-&gt;fonts    = $this-&gt;loadFonts();               // بطيئة
+    }
+}
+
+// وعايز 100 تقرير بنفس الشكل وبيانات مختلفة
+foreach ($users as $user) {
+    $report = new ReportTemplate(&#x27;template.xml&#x27;);   // ← بيعيد كل الشغل التقيل
+    $report-&gt;setUser($user);
+}</pre><h2 id="s"><span class="h-idx">2</span>الحل</h2><pre data-lang="php">class ReportTemplate
+{
+    public function copy(): static
+    {
+        return clone $this;      // الأجزاء التقيلة بتتنسخ زي ما هي
+    }
+
+    public function __clone(): void
+    {
+        // deep copy للأجزاء اللي مش المفروض تتشارك
+        $this-&gt;metadata = clone $this-&gt;metadata;
+    }
+}
+
+$prototype = new ReportTemplate(&#x27;template.xml&#x27;);   // مرة واحدة بس
+
+foreach ($users as $user) {
+    $report = $prototype-&gt;copy();
+    $report-&gt;setUser($user);
+}</pre><h2 id="shallow-vs-deep-copy"><span class="h-idx">3</span>Shallow vs Deep copy</h2><div class="box warn"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>أخطر نقطة في الـPattern دي</div><p>في PHP، <code>clone</code> بيعمل <b>shallow copy</b>: الـobjects اللي جوه بتفضل <b>مشتركة</b> بين الأصل والنسخة.</p><pre data-lang="php">$a = new Order();
+$a-&gt;customer = new Customer(&#x27;Khaled&#x27;);
+
+$b = clone $a;
+$b-&gt;customer-&gt;name = &#x27;Sara&#x27;;
+
+echo $a-&gt;customer-&gt;name;   // &#x27;Sara&#x27; ← الأصل اتغيّر!</pre><p>الحل: <code>__clone()</code> عشان تنسخ الأجزاء اللي مش المفروض تتشارك — وده اسمه <b>deep copy</b>.</p></div><h2 id="s"><span class="h-idx">4</span>امتى تستخدمه</h2><div class="table-wrap"><table><thead><tr><th>مناسب لما</th><th>مش مناسب لما</th></tr></thead><tbody><tr><td>الإنشاء مكلف (I/O، parsing، حسابات)</td><td>الـobject بسيط والإنشاء رخيص</td></tr><tr><td>عايز نسخ من object بحالة معيّنة</td><td>الـobject فيه resources مش بتتنسخ (connections، file handles)</td></tr><tr><td>عندك templates أو presets جاهزة</td><td>الـobject لازم يكون فريد (identity مهم)</td></tr></tbody></table></div><h2 id="s"><span class="h-idx">5</span>في العالم الحقيقي</h2><ul><li><b>Testing:</b> object جاهز بحالة معيّنة، وكل test بياخد نسخة ويعدّل عليها.</li><li><b>Undo:</b> بتنسخ الحالة قبل التعديل (بس هنا <a href='../patterns/memento.html'>Memento</a> غالبًا أنسب).</li><li><b>Config presets:</b> إعدادات أساسية بتتنسخ وتتعدّل حسب البيئة.</li></ul><h2 id="interview"><span class="h-idx">6</span>Interview</h2><div class="box good"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14.01l-3-3"/></svg>Why Prototype?</div><blockquote><p>«لما إنشاء الـobject يكون مكلف — بيقرا ملفات أو بيعمل حسابات تقيلة — بعمل نسخة واحدة وبنسخ منها بدل ما أعيد الشغل كل مرة. وأهم نقطة عملية في PHP إن <code>clone</code> بيعمل shallow copy، فلازم أعمل <code>__clone()</code> لو فيه objects جوه المفروض ما تتشاركش.»</p></blockquote></div>
+      <div id="quizHost"></div>
+      <div class="done-bar" id="doneBar"></div>
+      <nav class="page-nav" id="pageNav"></nav>
+    </div>
+  </main>
+</div>
+
+<script>
+window.PAGE_ID = "pat-prototype";
+window.PAGE_BASE = "../";
+window.SITE_NAV = [{"id": "start", "title": "البداية", "color": "#38bdf8", "items": [{"id": "home", "title": "الرئيسية", "href": "index.html", "kw": "home مقدمة"}, {"id": "roadmap", "title": "خريطة الرحلة", "href": "pages/roadmap.html", "kw": "roadmap طريق system design"}, {"id": "plan", "title": "خطة المذاكرة", "href": "pages/plan.html", "kw": "plan جدول أسابيع"}]}, {"id": "oop", "title": "أساسيات OOP", "color": "#34d399", "items": [{"id": "oop-encapsulation", "title": "Encapsulation", "href": "oop/encapsulation.html", "kw": "التغليف private state"}, {"id": "oop-responsibility", "title": "Responsibility", "href": "oop/responsibility.html", "kw": "المسؤولية مين مسؤول"}, {"id": "oop-srp", "title": "SRP", "href": "oop/srp.html", "kw": "single responsibility سبب واحد للتغيير"}, {"id": "oop-dry", "title": "DRY", "href": "oop/dry.html", "kw": "تكرار duplication"}, {"id": "oop-coupling", "title": "Coupling", "href": "oop/coupling.html", "kw": "tight loose ارتباط"}, {"id": "oop-interface", "title": "Interface & Abstraction", "href": "oop/interface.html", "kw": "contract عقد abstraction"}, {"id": "oop-polymorphism", "title": "Polymorphism", "href": "oop/polymorphism.html", "kw": "تعدد الأشكال"}, {"id": "oop-di", "title": "Dependency Injection", "href": "oop/di.html", "kw": "حقن الاعتماديات container"}, {"id": "oop-invariants", "title": "Invariants", "href": "oop/invariants.html", "kw": "guard rails قواعد validation"}, {"id": "oop-inheritance", "title": "Inheritance", "href": "oop/inheritance.html", "kw": "وراثة is-a composition"}, {"id": "oop-map", "title": "الخريطة الذهنية", "href": "oop/map.html", "kw": "ربط المفاهيم مراجعة"}]}, {"id": "solid", "title": "SOLID", "color": "#fbbf24", "items": [{"id": "solid-index", "title": "نظرة عامة", "href": "solid/index.html", "kw": "solid مقدمة"}, {"id": "solid-s", "title": "S — Single Responsibility", "href": "solid/srp.html", "kw": "srp"}, {"id": "solid-o", "title": "O — Open / Closed", "href": "solid/ocp.html", "kw": "ocp مفتوح مغلق"}, {"id": "solid-l", "title": "L — Liskov Substitution", "href": "solid/lsp.html", "kw": "lsp"}, {"id": "solid-i", "title": "I — Interface Segregation", "href": "solid/isp.html", "kw": "isp"}, {"id": "solid-d", "title": "D — Dependency Inversion", "href": "solid/dip.html", "kw": "dip"}]}, {"id": "patterns", "title": "Design Patterns", "color": "#fb7185", "items": [{"id": "pat-index", "title": "مقدمة والتصنيفات", "href": "patterns/index.html", "kw": "gof مقدمة 23 تصنيف"}]}, {"id": "creational", "title": "Creational — الإنشاء", "color": "#f472b6", "items": [{"id": "pat-factory", "title": "Factory Method", "href": "patterns/factory-method.html", "kw": "مصنع creation subclass", "num": "C1"}, {"id": "pat-abstract-factory", "title": "Abstract Factory", "href": "patterns/abstract-factory.html", "kw": "عائلة منتجات families", "num": "C2"}, {"id": "pat-builder", "title": "Builder", "href": "patterns/builder.html", "kw": "بناء object معقد خطوة", "num": "C3"}, {"id": "pat-prototype", "title": "Prototype", "href": "patterns/prototype.html", "kw": "clone نسخ", "num": "C4"}, {"id": "pat-singleton", "title": "Singleton", "href": "patterns/singleton.html", "kw": "نسخة واحدة global", "num": "C5"}]}, {"id": "structural", "title": "Structural — التركيب", "color": "#38bdf8", "items": [{"id": "pat-adapter", "title": "Adapter", "href": "patterns/adapter.html", "kw": "محوّل legacy interface", "num": "S1"}, {"id": "pat-bridge", "title": "Bridge", "href": "patterns/bridge.html", "kw": "فصل abstraction implementation", "num": "S2"}, {"id": "pat-composite", "title": "Composite", "href": "patterns/composite.html", "kw": "شجرة tree hierarchy", "num": "S3"}, {"id": "pat-decorator", "title": "Decorator", "href": "patterns/decorator.html", "kw": "تغليف behavior wrap", "num": "S4"}, {"id": "pat-facade", "title": "Facade", "href": "patterns/facade.html", "kw": "واجهة subsystem تبسيط", "num": "S5"}, {"id": "pat-flyweight", "title": "Flyweight", "href": "patterns/flyweight.html", "kw": "ذاكرة مشاركة shared", "num": "S6"}, {"id": "pat-proxy", "title": "Proxy", "href": "patterns/proxy.html", "kw": "وكيل lazy cache", "num": "S7"}]}, {"id": "behavioral", "title": "Behavioral — السلوك", "color": "#34d399", "items": [{"id": "pat-strategy", "title": "Strategy", "href": "patterns/strategy.html", "kw": "استراتيجية payment طرق تنفيذ", "num": "B1"}, {"id": "pat-observer", "title": "Observer", "href": "patterns/observer.html", "kw": "event listener أحداث", "num": "B2"}, {"id": "pat-state", "title": "State", "href": "patterns/state.html", "kw": "حالة order status", "num": "B3"}, {"id": "pat-command", "title": "Command", "href": "patterns/command.html", "kw": "أمر action object", "num": "B4"}, {"id": "pat-chain", "title": "Chain of Responsibility", "href": "patterns/chain.html", "kw": "سلسلة middleware pipeline", "num": "B5"}, {"id": "pat-template", "title": "Template Method", "href": "patterns/template-method.html", "kw": "قالب workflow خطوات", "num": "B6"}, {"id": "pat-iterator", "title": "Iterator", "href": "patterns/iterator.html", "kw": "تكرار foreach collection", "num": "B7"}, {"id": "pat-mediator", "title": "Mediator", "href": "patterns/mediator.html", "kw": "وسيط تنسيق", "num": "B8"}, {"id": "pat-memento", "title": "Memento", "href": "patterns/memento.html", "kw": "حفظ استرجاع undo", "num": "B9"}, {"id": "pat-visitor", "title": "Visitor", "href": "patterns/visitor.html", "kw": "زائر عمليات جديدة", "num": "B10"}, {"id": "pat-interpreter", "title": "Interpreter", "href": "patterns/interpreter.html", "kw": "لغة قواعد تفسير", "num": "B11"}]}, {"id": "practice", "title": "تطبيق ومراجعة", "color": "#a78bfa", "items": [{"id": "pat-compare", "title": "اختيار الـPattern المناسب", "href": "patterns/compare.html", "kw": "فرق شجرة قرار مقارنة"}, {"id": "prj", "title": "المشروع العملي", "href": "practice/project.html", "kw": "order refactor تحديات"}, {"id": "interview", "title": "بنك أسئلة الإنترفيو", "href": "practice/interview.html", "kw": "interview أسئلة"}, {"id": "cheat", "title": "الملخص السريع", "href": "practice/cheatsheet.html", "kw": "cheatsheet مراجعة"}, {"id": "exam", "title": "الامتحان الشامل", "href": "practice/exam.html", "kw": "exam اختبار نهائي"}]}];
+window.QUIZ = {"title": "اختبر نفسك — Prototype", "questions": [{"q": "الـPrototype بيحل مشكلة:", "options": ["واجهات غير متوافقة", "إنشاء object مكلف أو معقد — فبننسخ بدل ما نبني", "سلوك بيتغيّر حسب الحالة", "subsystem معقد"], "answer": 1, "exp": "الفكرة: <strong>النسخ أرخص من البناء</strong> لما البناء فيه I/O أو حسابات تقيلة."}, {"q": "في PHP، <code>clone $order;</code> بيعمل إيه للـobjects اللي جوه؟", "options": ["بينسخهم كلهم (deep copy)", "بيسيبهم مشتركين بين الأصل والنسخة (shallow copy)", "بيحذفهم", "بيحوّلهم لـnull"], "answer": 1, "exp": "<strong>shallow copy</strong> — وده أشهر مصدر للـbugs. أي تعديل في object داخلي في النسخة بيظهر في الأصل. الحل: <code>__clone()</code>."}, {"q": "أنهي حالة <b>مش</b> مناسبة للـPrototype؟", "options": ["object فيه database connection مفتوح", "template تقرير بياناته اتحمّلت من ملف", "preset إعدادات", "object في test fixture"], "answer": 0, "exp": "الـ<strong>resources</strong> (connections، file handles) مش بتتنسخ بشكل منطقي — نسختين بيشاورا على نفس الاتصال بيولّد سلوك غريب."}, {"q": "إيه الفرق بين Prototype و Memento؟", "options": ["نفس الحاجة", "Prototype للإنشاء بالنسخ، Memento لحفظ واسترجاع حالة سابقة", "Prototype أحدث", "Memento للـcreational patterns"], "answer": 1, "exp": "الهدف مختلف: <strong>Prototype = creational</strong> (إنشاء object جديد)، <strong>Memento = behavioral</strong> (حفظ حالة عشان ترجّعها بعدين)."}], "id": "pat-prototype"};
+</script>
+<script src="../assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Responsibility — Backend Mastery</title>
+<meta name="description" content="أهم سؤال تسأله وأنت بتصمم: العملية دي مين صاحبها الطبيعي؟ معظم مشاكل التصميم بتبدأ من object بيعمل شغل مش بتاعه.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2310b981'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='monospace' font-weight='bold' fill='%23042014'>B</text></svg>">
+<link rel="stylesheet" href="../assets/style.css">
+<script>(function(){try{var t=JSON.parse(localStorage.getItem('bm.theme'))||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" id="menuBtn" type="button" aria-label="القائمة"></button>
+  <a class="brand" href="../index.html">
+    <span class="brand-mark">B</span>
+    <span>Backend Mastery<small>OOP · SOLID · PATTERNS</small></span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <div class="search-wrap">
+    <input class="search-input" id="searchInput" type="search" placeholder="ابحث… ( / )" autocomplete="off">
+    <div class="search-results" id="searchResults"></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" type="button" aria-label="تبديل الوضع"></button>
+</header>
+
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="container">
+      <nav class="crumb"><a href="../index.html">الرئيسية</a><span>/</span><a href="../oop/encapsulation.html">أساسيات OOP</a><span>/</span>Responsibility</nav>
+<header class="page-head"><div class="eyebrow">OOP · المفهوم 2</div><h1>Responsibility — مين مسؤول عن إيه؟</h1><p class="lede">أهم سؤال تسأله وأنت بتصمم: العملية دي مين صاحبها الطبيعي؟ معظم مشاكل التصميم بتبدأ من object بيعمل شغل مش بتاعه.</p></header>
+      <nav class="toc"><div class="toc-title">محتويات الصفحة</div><ol><li><a href="#s">المشكلة</a></li><li><a href="#s">ليه دي مشكلة كبيرة؟</a></li><li><a href="#s">إزاي تحدد صاحب المسؤولية؟</a></li><li><a href="#s">الخريطة الطبيعية للمسؤوليات</a></li><li><a href="#responsibility-srp">الفرق بين Responsibility و SRP</a></li><li><a href="#interview">Interview</a></li></ol></nav>
+      <div class="remember"><span class="rk">افتكرها</span><p>لما تشوف عملية بتحصل، اسأل: <em>«مين صاحب المسؤولية الطبيعية عن العملية دي؟»</em></p></div><h2 id="s"><span class="h-idx">1</span>المشكلة</h2><pre data-lang="php">public function processPayment()
+{
+    // ...
+    if ($this-&gt;paymentMethod === &#x27;wallet&#x27;) {
+        if ($this-&gt;customer-&gt;walletBalance &gt;= $total) {
+            $this-&gt;customer-&gt;walletBalance -= $total;   // ← هنا
+            $this-&gt;status = &#x27;paid&#x27;;
+            return true;
+        }
+    }
+}</pre><p>السطر ده جوه <code>Order</code>. يعني الـOrder هو اللي:</p><ul><li>بيقرأ رصيد الـWallet.</li><li>بيقارن الرصيد بالمبلغ.</li><li>بيخصم من الرصيد بنفسه.</li></ul><div class="box problem"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>السؤال المهم</div><p>هل الـ<b>Order</b> هو المسؤول عن قواعد الفلوس؟</p><p>الإجابة الأقرب: <b>لأ. الـWallet هي اللي مسؤولة عن رصيدها.</b></p></div><h2 id="s"><span class="h-idx">2</span>ليه دي مشكلة كبيرة؟</h2><p>تخيّل بعد 6 شهور، بقى عندك 5 أماكن في المشروع بيخصموا من الـwallet:</p><div class="diagram">Order          →  $wallet-&gt;balance -= $total
+RefundService  →  $wallet-&gt;balance += $amount
+AdminPanel     →  $wallet-&gt;balance  = $newValue
+Subscription   →  $wallet-&gt;balance -= $monthly
+Migration      →  $wallet-&gt;balance -= $fee</div><p>دلوقتي جالك requirement جديد: <b>«ممنوع الرصيد ينزل تحت الصفر، وكل حركة لازم تتسجل في transaction log.»</b></p><p>كام مكان هتعدّل؟ خمسة. وهتنسى واحد منهم على الأقل — وده مش تشاؤم، ده اللي بيحصل فعلًا.</p><div class="box good"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14.01l-3-3"/></svg>لما المسؤولية تكون في مكانها</div><pre data-lang="php">class Wallet
+{
+    private int $balanceInCents = 0;
+
+    public function debit(Money $amount): void
+    {
+        if ($amount-&gt;isGreaterThan($this-&gt;balance())) {
+            throw new InsufficientFunds();
+        }
+
+        $this-&gt;balanceInCents -= $amount-&gt;cents();
+        $this-&gt;log(new WalletDebited($amount));
+    }
+}</pre><p>دلوقتي القاعدة الجديدة اتكتبت في مكان واحد، وكل الـcallers استفادوا منها فورًا — من غير ما تلمسهم.</p></div><h2 id="s"><span class="h-idx">3</span>إزاي تحدد صاحب المسؤولية؟</h2><p>في 3 أسئلة عملية بتوصلك للإجابة في ثواني:</p><div class="table-wrap"><table><thead><tr><th>السؤال</th><th>بيوصلك لإيه</th></tr></thead><tbody><tr><td>مين بيملك البيانات اللي العملية دي محتاجة تعدّلها؟</td><td>غالبًا هو ده صاحب العملية. الـbalance بتاع الـWallet → الـWallet.</td></tr><tr><td>مين لو اتغيّرت قواعده، العملية دي لازم تتغيّر؟</td><td>لو قواعد الفلوس اتغيرت، مين المفروض يتأثر؟ الـWallet مش الـOrder.</td></tr><tr><td>لو حذفت الـclass دي، العملية دي تروح فين؟</td><td>لو حذفت الـOrder، الـWallet لسه محتاجة تعرف تخصم. يبقى الخصم مش تبع الـOrder.</td></tr></tbody></table></div><h2 id="s"><span class="h-idx">4</span>الخريطة الطبيعية للمسؤوليات</h2><div class="diagram">Order          →  يعرف الـitems وقيمة الطلب وحالته
+Wallet         →  يعرف الرصيد وإزاي يخصم ويضيف
+PaymentGateway →  يعرف إزاي ينفّذ الدفع فعليًا
+EmailSender    →  يعرف إزاي يبعت email
+OrderRepository→  يعرف إزاي يخزّن ويسترجع الطلب</div><p>لاحظ إن كل سطر بيبدأ بـ«يعرف». دي طريقة ممتازة تختبر بيها التصميم: <b>لو الـclass بتعرف حاجة مش من طبيعتها، فهي شايلة مسؤولية مش بتاعتها.</b></p><h2 id="responsibility-srp"><span class="h-idx">5</span>الفرق بين Responsibility و SRP</h2><p>الاتنين قرايب لكن مش نفس الحاجة:</p><div class="table-wrap"><table><thead><tr><th></th><th>Responsibility</th><th>SRP</th></tr></thead><tbody><tr><td>السؤال</td><td>العملية دي بتخص مين؟</td><td>الـclass دي شايلة كام شغلانة مختلفة؟</td></tr><tr><td>الاتجاه</td><td>من العملية → للـclass</td><td>من الـclass → للعمليات اللي جواها</td></tr><tr><td>المثال</td><td>خصم الفلوس شغل الـWallet مش الـOrder</td><td>الـOrder بيحسب ويدفع ويبعت email ويحفظ في ملف</td></tr></tbody></table></div><p>عمليًا: بتستخدم <b>Responsibility</b> وأنت بتقرر العملية تتحط فين، وبتستخدم <b>SRP</b> وأنت بتراجع class موجودة وتشوف هي شايلة إيه. اقرا التفاصيل في صفحة <a href='../oop/srp.html'>SRP</a>.</p><h2 id="interview"><span class="h-idx">6</span>Interview</h2><div class="box good"><div class="box-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14.01l-3-3"/></svg>سؤال شائع: ليه فصلت الخصم في الـWallet؟</div><blockquote><p>«لأن الـWallet هي اللي بتملك الرصيد، فهي اللي المفروض تحمي قواعده — زي إن الرصيد ما ينزلش تحت الصفر أو إن كل حركة تتسجّل. لو سيبت كل class تخصم بنفسها، القاعدة دي هتتكرر في كل مكان، وأول ما تتغير هضطر أعدل في كذا مكان وأنسى واحد منهم.»</p></blockquote></div><div class="remember"><span class="rk">الخلاصة</span><p>كل object يبقى صاحب الحاجة اللي تخصه.</p></div>
+      <div id="quizHost"></div>
+      <div class="done-bar" id="doneBar"></div>
+      <nav class="page-nav" id="pageNav"></nav>
+    </div>
+  </main>
+</div>
+
+<script>
+window.PAGE_ID = "oop-responsibility";
+window.PAGE_BASE = "../";
+window.SITE_NAV = [{"id": "start", "title": "البداية", "color": "#38bdf8", "items": [{"id": "home", "title": "الرئيسية", "href": "index.html", "kw": "home مقدمة"}, {"id": "roadmap", "title": "خريطة الرحلة", "href": "pages/roadmap.html", "kw": "roadmap طريق system design"}, {"id": "plan", "title": "خطة المذاكرة", "href": "pages/plan.html", "kw": "plan جدول أسابيع"}]}, {"id": "oop", "title": "أساسيات OOP", "color": "#34d399", "items": [{"id": "oop-encapsulation", "title": "Encapsulation", "href": "oop/encapsulation.html", "kw": "التغليف private state"}, {"id": "oop-responsibility", "title": "Responsibility", "href": "oop/responsibility.html", "kw": "المسؤولية مين مسؤول"}, {"id": "oop-srp", "title": "SRP", "href": "oop/srp.html", "kw": "single responsibility سبب واحد للتغيير"}, {"id": "oop-dry", "title": "DRY", "href": "oop/dry.html", "kw": "تكرار duplication"}, {"id": "oop-coupling", "title": "Coupling", "href": "oop/coupling.html", "kw": "tight loose ارتباط"}, {"id": "oop-interface", "title": "Interface & Abstraction", "href": "oop/interface.html", "kw": "contract عقد abstraction"}, {"id": "oop-polymorphism", "title": "Polymorphism", "href": "oop/polymorphism.html", "kw": "تعدد الأشكال"}, {"id": "oop-di", "title": "Dependency Injection", "href": "oop/di.html", "kw": "حقن الاعتماديات container"}, {"id": "oop-invariants", "title": "Invariants", "href": "oop/invariants.html", "kw": "guard rails قواعد validation"}, {"id": "oop-inheritance", "title": "Inheritance", "href": "oop/inheritance.html", "kw": "وراثة is-a composition"}, {"id": "oop-map", "title": "الخريطة الذهنية", "href": "oop/map.html", "kw": "ربط المفاهيم مراجعة"}]}, {"id": "solid", "title": "SOLID", "color": "#fbbf24", "items": [{"id": "solid-index", "title": "نظرة عامة", "href": "solid/index.html", "kw": "solid مقدمة"}, {"id": "solid-s", "title": "S — Single Responsibility", "href": "solid/srp.html", "kw": "srp"}, {"id": "solid-o", "title": "O — Open / Closed", "href": "solid/ocp.html", "kw": "ocp مفتوح مغلق"}, {"id": "solid-l", "title": "L — Liskov Substitution", "href": "solid/lsp.html", "kw": "lsp"}, {"id": "solid-i", "title": "I — Interface Segregation", "href": "solid/isp.html", "kw": "isp"}, {"id": "solid-d", "title": "D — Dependency Inversion", "href": "solid/dip.html", "kw": "dip"}]}, {"id": "patterns", "title": "Design Patterns", "color": "#fb7185", "items": [{"id": "pat-index", "title": "مقدمة والتصنيفات", "href": "patterns/index.html", "kw": "gof مقدمة 23 تصنيف"}]}, {"id": "creational", "title": "Creational — الإنشاء", "color": "#f472b6", "items": [{"id": "pat-factory", "title": "Factory Method", "href": "patterns/factory-method.html", "kw": "مصنع creation subclass", "num": "C1"}, {"id": "pat-abstract-factory", "title": "Abstract Factory", "href": "patterns/abstract-factory.html", "kw": "عائلة منتجات families", "num": "C2"}, {"id": "pat-builder", "title": "Builder", "href": "patterns/builder.html", "kw": "بناء object معقد خطوة", "num": "C3"}, {"id": "pat-prototype", "title": "Prototype", "href": "patterns/prototype.html", "kw": "clone نسخ", "num": "C4"}, {"id": "pat-singleton", "title": "Singleton", "href": "patterns/singleton.html", "kw": "نسخة واحدة global", "num": "C5"}]}, {"id": "structural", "title": "Structural — التركيب", "color": "#38bdf8", "items": [{"id": "pat-adapter", "title": "Adapter", "href": "patterns/adapter.html", "kw": "محوّل legacy interface", "num": "S1"}, {"id": "pat-bridge", "title": "Bridge", "href": "patterns/bridge.html", "kw": "فصل abstraction implementation", "num": "S2"}, {"id": "pat-composite", "title": "Composite", "href": "patterns/composite.html", "kw": "شجرة tree hierarchy", "num": "S3"}, {"id": "pat-decorator", "title": "Decorator", "href": "patterns/decorator.html", "kw": "تغليف behavior wrap", "num": "S4"}, {"id": "pat-facade", "title": "Facade", "href": "patterns/facade.html", "kw": "واجهة subsystem تبسيط", "num": "S5"}, {"id": "pat-flyweight", "title": "Flyweight", "href": "patterns/flyweight.html", "kw": "ذاكرة مشاركة shared", "num": "S6"}, {"id": "pat-proxy", "title": "Proxy", "href": "patterns/proxy.html", "kw": "وكيل lazy cache", "num": "S7"}]}, {"id": "behavioral", "title": "Behavioral — السلوك", "color": "#34d399", "items": [{"id": "pat-strategy", "title": "Strategy", "href": "patterns/strategy.html", "kw": "استراتيجية payment طرق تنفيذ", "num": "B1"}, {"id": "pat-observer", "title": "Observer", "href": "patterns/observer.html", "kw": "event listener أحداث", "num": "B2"}, {"id": "pat-state", "title": "State", "href": "patterns/state.html", "kw": "حالة order status", "num": "B3"}, {"id": "pat-command", "title": "Command", "href": "patterns/command.html", "kw": "أمر action object", "num": "B4"}, {"id": "pat-chain", "title": "Chain of Responsibility", "href": "patterns/chain.html", "kw": "سلسلة middleware pipeline", "num": "B5"}, {"id": "pat-template", "title": "Template Method", "href": "patterns/template-method.html", "kw": "قالب workflow خطوات", "num": "B6"}, {"id": "pat-iterator", "title": "Iterator", "href": "patterns/iterator.html", "kw": "تكرار foreach collection", "num": "B7"}, {"id": "pat-mediator", "title": "Mediator", "href": "patterns/mediator.html", "kw": "وسيط تنسيق", "num": "B8"}, {"id": "pat-memento", "title": "Memento", "href": "patterns/memento.html", "kw": "حفظ استرجاع undo", "num": "B9"}, {"id": "pat-visitor", "title": "Visitor", "href": "patterns/visitor.html", "kw": "زائر عمليات جديدة", "num": "B10"}, {"id": "pat-interpreter", "title": "Interpreter", "href": "patterns/interpreter.html", "kw": "لغة قواعد تفسير", "num": "B11"}]}, {"id": "practice", "title": "تطبيق ومراجعة", "color": "#a78bfa", "items": [{"id": "pat-compare", "title": "اختيار الـPattern المناسب", "href": "patterns/compare.html", "kw": "فرق شجرة قرار مقارنة"}, {"id": "prj", "title": "المشروع العملي", "href": "practice/project.html", "kw": "order refactor تحديات"}, {"id": "interview", "title": "بنك أسئلة الإنترفيو", "href": "practice/interview.html", "kw": "interview أسئلة"}, {"id": "cheat", "title": "الملخص السريع", "href": "practice/cheatsheet.html", "kw": "cheatsheet مراجعة"}, {"id": "exam", "title": "الامتحان الشامل", "href": "practice/exam.html", "kw": "exam اختبار نهائي"}]}];
+window.QUIZ = {"title": "اختبر نفسك — Responsibility", "questions": [{"q": "أنهي سؤال بيساعدك أكتر تحدد مكان العملية؟", "options": ["الـclass دي فيها كام سطر؟", "مين بيملك البيانات اللي العملية محتاجة تعدّلها؟", "الـclass دي اتكتبت إمتى؟", "هل الاسم فيه كلمة Service؟"], "answer": 1, "exp": "الملكية هي أقوى مؤشر. <strong>اللي بيملك الـdata هو اللي المفروض يحمي قواعدها.</strong> الرصيد بتاع الـWallet → الخصم شغل الـWallet."}, {"q": "<code>Order</code> بينادي <code>$this->customer->walletBalance -= $total;</code>. لو 5 كلاسات تانية بتعمل نفس الحاجة، إيه أخطر نتيجة؟", "options": ["الكود هيبقى أبطأ", "أي قاعدة جديدة للفلوس لازم تتكرر في 5 أماكن، وهتنسى واحد", "هتحتاج ذاكرة أكتر", "الـIDE مش هيعرف يعمل autocomplete"], "answer": 1, "exp": "دي المشكلة العملية الحقيقية. القاعدة اللي متكررة = قاعدة هتتنسي في مكان واحد على الأقل، والمكان ده هيبقى الـbug. وفي حالة الفلوس، الـbug ده بيتكلف فلوس فعلًا."}, {"q": "بعد refactoring، مين المفروض يقرر إن الرصيد مش كفاية؟", "options": ["الـOrder، لأنه عارف المبلغ", "الـWallet، لأنه عارف الرصيد وقواعده", "الـController، لأنه أول نقطة دخول", "الـDatabase عن طريق constraint"], "answer": 1, "exp": "الـOrder بيقول «اخصم كذا»، والـWallet هي اللي تقرر تقدر ولا لأ وترمي <code>InsufficientFunds</code>. <strong>الـOrder يطلب، الـWallet تقرر.</strong>"}, {"q": "إيه الفرق بين Responsibility و SRP؟", "options": ["مفيش فرق، أسماء مختلفة لنفس الحاجة", "Responsibility: العملية تخص مين. SRP: الـclass شايلة كام شغلانة", "Responsibility في PHP بس، وSRP في كل اللغات", "SRP بتخص الـinterfaces بس"], "answer": 1, "exp": "الاتجاه مختلف: Responsibility بتبص من <strong>العملية</strong> وتسأل تروح فين، وSRP بتبص من <strong>الـclass</strong> وتسأل هي شايلة إيه. الاتنين بيوصلوا لنفس النتيجة من طريقين."}, {"q": "الـ<code>Order</code> عايز يبعت email تأكيد. مين المسؤول عن معرفة SMTP والـtemplates؟", "options": ["الـOrder، هو صاحب الطلب", "class متخصصة زي <code>Mailer</code> والـOrder يطلب منها بس", "الـCustomer، هو صاحب الإيميل", "مفيش حد، نكتبه inline"], "answer": 1, "exp": "الـOrder يعرف <strong>إن فيه تأكيد لازم يتبعت</strong>، لكنه ما يعرفش <strong>إزاي</strong> يتبعت. ودي بالظبط الحدود الصح — والخطوة اللي بعدها هي <a href='../oop/di.html'>Dependency Injection</a> عشان الـMailer تيجي من بره."}, {"q": "عندك <code>Invoice</code> محتاجة تتحول لـPDF. فين تحط عملية التحويل؟ وليه؟", "kind": "سؤال مفتوح", "exp": "<b>الإجابة النموذجية:</b> في class منفصلة زي <code>InvoicePdfRenderer</code>. الـ<code>Invoice</code> مسؤولة عن <strong>بيانات وقواعد الفاتورة</strong> (البنود، الإجمالي، الضريبة)، مش عن معرفة مكتبة PDF وخطوط وهوامش. لو حطيت التحويل جوه الـInvoice، أول ما تغيّر مكتبة الـPDF هتضطر تعدّل class فيها business logic حساسة — ودي علامة إن المسؤوليتين مش المفروض يكونوا مع بعض. كمان كده تقدر تضيف <code>InvoiceHtmlRenderer</code> بعدين من غير ما تلمس الـInvoice."}], "id": "oop-responsibility"};
+</script>
+<script src="../assets/app.js"></script>
+</body>
+</html>
